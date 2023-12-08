@@ -1,0 +1,74 @@
+buildscript {
+    configurations['classpath'].resolutionStrategy.eachDependency {
+        if (requested.group == 'org.jooq') {
+            useVersion '3.18.7'
+        }
+    }
+}
+
+plugins {
+    id 'java'
+    id 'io.quarkus'
+    // https://github.com/etiennestuder/gradle-jooq-plugin/blob/main/README.md
+    id 'nu.studer.jooq' version '8.2.1'
+    // https://contribute.liquibase.com/extensions-integrations/directory/integration-docs/gradle/
+    id 'org.liquibase.gradle' version '2.2.1'
+    // https://github.com/avast/gradle-docker-compose-plugin
+    id "com.avast.gradle.docker-compose" version "0.17.5"
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+dependencies {
+    implementation enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}")
+    implementation 'io.quarkus:quarkus-jdbc-postgresql'
+    implementation 'io.quarkus:quarkus-agroal'
+    implementation 'io.quarkiverse.jooq:quarkus-jooq:2.0.0'
+    implementation 'io.quarkus:quarkus-jackson'
+    implementation 'io.quarkus:quarkus-arc'
+    testImplementation 'io.quarkus:quarkus-junit5'
+    // https://mvnrepository.com/artifact/org.jooq/jooq
+    implementation 'org.jooq:jooq:3.18.7'
+
+    liquibaseRuntime 'org.liquibase:liquibase-core:4.16.1'
+    liquibaseRuntime 'info.picocli:picocli:4.6.1'
+    liquibaseRuntime 'org.liquibase:liquibase-groovy-dsl:3.0.2'
+    liquibaseRuntime "org.postgresql:postgresql:42.5.1"
+
+    jooqGenerator 'org.postgresql:postgresql:42.5.1'
+}
+
+group 'org.ays.theatre.crawler'
+version '1.0.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+test {
+    systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+}
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters'
+}
+
+compileTestJava {
+    options.encoding = 'UTF-8'
+}
+
+apply from: 'liquibase.gradle'
+apply from: 'jooq.gradle'
+
+tasks.getByName('liquibase update').doFirst {
+    composeUp
+}
+
+dockerCompose {
+    useComposeFiles = ['src/main/docker/infra/postgres.yaml']
+    isRequiredBy(tasks.getByName('liquibase update'))
+}

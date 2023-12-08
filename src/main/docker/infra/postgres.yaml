@@ -1,0 +1,11 @@
+version: '2.3'
+
+services:
+  # A PostgreSQL database to be used by vpshere-provider
+  postgres:
+    image: bitnami/postgresql:16.1.0-debian-11-r15
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
