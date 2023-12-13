@@ -51,6 +51,3 @@ jooq {
         }
     }
 }
-
-generateJooq.dependsOn('liquibase update')
-composeDown.dependsOn(quarkusAppPartsBuild)

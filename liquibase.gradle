@@ -5,15 +5,7 @@ liquibase {
             url 'jdbc:postgresql://localhost:5432/postgres?ApplicationName=liquibase.gradle'
             username 'postgres'
             password 'password'
-            referenceDriver 'org.postgresql.Driver'
+//            referenceDriver 'org.postgresql.Driver'
         }
     }
 }
-
-tasks.register("liquibase update") {
-    composeUp
-    update
-}
-
-update.dependsOn(composeUp)
-update.dependsOn(deploy)
