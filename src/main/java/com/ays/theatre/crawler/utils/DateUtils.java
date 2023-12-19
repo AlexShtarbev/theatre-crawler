@@ -5,19 +5,19 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class DateUtils {
-    public static Map<String, Integer> BULGARIAN_MONTH_TO_CALENDAR_MONTH_MAP = new HashMap() {{
-        put("януари", Calendar.JANUARY);
-        put("февруари", Calendar.FEBRUARY);
-        put("март", Calendar.MARCH);
-        put("април", Calendar.APRIL);
-        put("май", Calendar.MAY);
-        put("юни", Calendar.JUNE);
-        put("юли", Calendar.JULY);
-        put("август", Calendar.AUGUST);
-        put("сетптември", Calendar.SEPTEMBER);
-        put("октомври", Calendar.OCTOBER);
-        put("ноември", Calendar.NOVEMBER);
-        put("декември", Calendar.DECEMBER);
+    public static Map<String, Integer> BULGARIAN_MONTH_TO_CALENDAR_MONTH_MAP = new HashMap<>() {{
+        put("януари", Calendar.JANUARY + 1);
+        put("февруари", Calendar.FEBRUARY + 1);
+        put("март", Calendar.MARCH + 1);
+        put("април", Calendar.APRIL + 1);
+        put("май", Calendar.MAY + 1);
+        put("юни", Calendar.JUNE + 1);
+        put("юли", Calendar.JULY + 1);
+        put("август", Calendar.AUGUST + 1);
+        put("сетптември", Calendar.SEPTEMBER + 1);
+        put("октомври", Calendar.OCTOBER + 1);
+        put("ноември", Calendar.NOVEMBER + 1);
+        put("декември", Calendar.DECEMBER + 1);
     }};
 
     public static Calendar getDateWithoutTimeUsingCalendar() {

@@ -1,6 +1,3 @@
-/*
- * Copyright (c) 2022 VMware, Inc. All rights reserved. VMware Confidential
- */
 
 package com.ays.theatre.crawler.theatreartbg.job;
 
@@ -10,10 +7,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import org.jboss.logging.Logger;
 
 import com.ays.theatre.crawler.theatreartbg.TheatreArtBgConstants;
+import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgCalendar;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtQueuePayload;
 import com.ays.theatre.crawler.theatreartbg.service.TheatreArtBgCrawlerService;
-import com.ays.theatre.crawler.theatreartbg.service.TheatreArtBgScraperService;
-import com.ays.theatre.crawler.theatreartbg.worker.TheatreArtBgScraperWorkerPool;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 
@@ -22,20 +18,17 @@ import jakarta.inject.Singleton;
 
 @Singleton
 public class TheatreArtBgJob {
-    private static final Logger LOG = Logger.getLogger(TheatreArtBgJob.class);
-    private static final int PARALLEL_WORKERS_SIZE = 5;
 
-    private final ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> queue = new ConcurrentLinkedQueue<>();
+    private static final Logger LOG = Logger.getLogger(TheatreArtBgJob.class);
+    public static final int MAX_NUM_RETRIES = 10;
+
+    @Inject
+    ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> queue;
 
     @Inject
     TheatreArtBgCrawlerService theatreArtBgCrawlerService;
 
-    @Inject
-    TheatreArtBgScraperService theatreArtBgScraperService;
-
     public void run() {
-        var workerPool = new TheatreArtBgScraperWorkerPool(theatreArtBgScraperService, queue, PARALLEL_WORKERS_SIZE);
-        workerPool.startWorkers();
         try (Playwright playwright = Playwright.create()) {
             try (var browser = playwright.webkit().launch()) {
                 try (var page = browser.newPage()) {
@@ -47,18 +40,34 @@ public class TheatreArtBgJob {
                             LOG.info(String.format("---Loading all other days for %d %d: %s---",
                                                    cal.getMonth(), cal.getYear(), cal.getUrl()));
 
-                            currentPage.navigate(cal.getUrl());
+                            navigate(currentPage, cal.getUrl());
                             var nextDays = theatreArtBgCrawlerService.getAllDaysOfMonthsUrls(currentPage);
                             var allDaysLinks = new ArrayList<>(nextDays);
                             allDaysLinks.add(cal.getUrl());
 
                             var payloads = allDaysLinks.stream()
-                                    .map(url -> ImmutableTheatreArtQueuePayload.builder().url(url).build()).toList();
+                                    .map(url -> getCalendar(cal, url)).toList();
                             queue.addAll(payloads);
                         }
                     });
                 }
             }
         }
+    }
+
+    private void navigate(Page currentPage, String url) {
+        for (int i = 0; i < MAX_NUM_RETRIES; i++) {
+            try {
+                currentPage.setDefaultTimeout(10_000);
+                currentPage.navigate(url);
+            } catch (Exception ex) {
+                LOG.info("Will retry failed navigation");
+                LOG.error(ex);
+            }
+        }
+    }
+
+    private ImmutableTheatreArtQueuePayload getCalendar(ImmutableTheatreArtBgCalendar cal, String url) {
+        return ImmutableTheatreArtQueuePayload.builder().url(url).calendar(cal).build();
     }
 }

@@ -1,12 +1,11 @@
 --liquibase formatted sql
 
 --changeset alex.shtarbev:1
-create schema theatre_crawler;
-
---changeset alex.shtarbev:2
-create table if not exists theatre_crawler.theatre_play (
-    title                        text DEFAULT gen_random_uuid() PRIMARY KEY,
+create table if not exists theatre_play (
+    title                        text NOT NULL,
     url                          text NOT NULL,
+    theatre                      text NOT NULL,
     date                         timestamptz NOT NULL,
-    last_updated                 timestamptz DEFAULT (now())
+    last_updated                 timestamptz DEFAULT (now()),
+    PRIMARY KEY (url, date)
 );

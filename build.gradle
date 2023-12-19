@@ -24,11 +24,11 @@ repositories {
 
 dependencies {
     implementation enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}")
+    // https://mvnrepository.com/artifact/io.quarkus/quarkus-liquibase
+    implementation 'io.quarkus:quarkus-liquibase:1.7.4.Final'
+    implementation 'io.quarkus:quarkus-agroal:3.6.3'
     implementation 'io.quarkus:quarkus-jdbc-postgresql'
-    implementation 'io.quarkus:quarkus-agroal'
     implementation 'io.quarkiverse.jooq:quarkus-jooq:2.0.0'
-    implementation 'io.quarkus:quarkus-jackson'
-    implementation 'io.quarkus:quarkus-arc'
     // https://mvnrepository.com/artifact/org.jooq/jooq
     implementation 'org.jooq:jooq:3.18.7'
     implementation 'org.immutables:value:2.9.2'
@@ -76,6 +76,7 @@ apply from: 'jooq.gradle'
 dockerCompose {
     useComposeFiles = ['src/main/docker/infra/postgres.yaml']
     isRequiredBy(generateJooq)
+    environment.put 'EXPOSED_PORT', '5434'
 }
 
 update.dependsOn(composeUp)
