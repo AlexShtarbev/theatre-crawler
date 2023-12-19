@@ -7,7 +7,7 @@ jooq {
             generationTool {
                 jdbc {
                     driver = 'org.postgresql.Driver'
-                    url = 'jdbc:postgresql://localhost:5432/postgres?ApplicationName=jooq.gradle'
+                    url = 'jdbc:postgresql://localhost:5434/postgres?ApplicationName=jooq.gradle'
                     user = 'postgres'
                     password = 'password'
                     properties {
@@ -21,7 +21,7 @@ jooq {
                     name = 'org.jooq.codegen.DefaultGenerator'
                     database {
                         name = 'org.jooq.meta.postgres.PostgresDatabase'
-                        inputSchema = 'theatre_crawler'
+                        inputSchema = 'public'
                         forcedTypes {
                             forcedType {
                                 name = 'varchar'
@@ -40,6 +40,8 @@ jooq {
                         records = true
                         immutablePojos = true
                         fluentSetters = true
+                        daos = false
+                        pojos = false
                     }
                     target {
                         packageName = 'com.ays.theatre.crawler'
@@ -51,6 +53,3 @@ jooq {
         }
     }
 }
-
-generateJooq.dependsOn('liquibase update')
-composeDown.dependsOn(quarkusAppPartsBuild)

@@ -2,18 +2,9 @@ liquibase {
     activities {
         main {
             changelogFile "src/main/resources/migrations/sql/migrations.sql"
-            url 'jdbc:postgresql://localhost:5432/postgres?ApplicationName=liquibase.gradle'
+            url 'jdbc:postgresql://localhost:5434/postgres?ApplicationName=liquibase.gradle'
             username 'postgres'
             password 'password'
-            referenceDriver 'org.postgresql.Driver'
         }
     }
 }
-
-tasks.register("liquibase update") {
-    composeUp
-    update
-}
-
-update.dependsOn(composeUp)
-update.dependsOn(deploy)
