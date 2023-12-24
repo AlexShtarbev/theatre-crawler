@@ -5,11 +5,14 @@ import static java.time.Duration.ofSeconds;
 
 import java.sql.SQLException;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 
+import com.ays.theatre.crawler.calendar.ImmutableGoogleCalendarEventSchedulerPayload;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtQueuePayload;
 
 import io.agroal.api.AgroalDataSource;
@@ -26,12 +29,26 @@ import jakarta.inject.Singleton;
 public class Configuration {
 
     public static final String CUSTOM_DSL = "CUSTOM_DSL";
-    public static final String JDBC_URL = "jdbc:postgresql://localhost:5432/postgres";
+    public static final String GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR = "GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR";
+    public static final String JDBC_URL = "jdbc:postgresql://localhost:5432/root_db";
 
     @Produces
     @Singleton
-    ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> getTheatreArtBgQueue() {
+    public ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> getTheatreArtBgQueue() {
         return new ConcurrentLinkedQueue<>();
+    }
+
+    @Produces
+    @Singleton
+    public ConcurrentLinkedQueue<ImmutableGoogleCalendarEventSchedulerPayload>
+    getGoogleCalendarEventSchedulerPayloadQueue() {
+        return new ConcurrentLinkedQueue<>();
+    }
+    @Produces
+    @Singleton
+    @Named(GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR)
+    public Executor getGoogleCalendarEventSchedulerPayload() {
+        return Executors.newVirtualThreadPerTaskExecutor();
     }
 
     @Produces
@@ -57,8 +74,9 @@ public class Configuration {
                         .reapTimeout(ofSeconds(500))
                         .connectionFactoryConfiguration(cf -> cf
                                 .jdbcUrl(JDBC_URL)
-                                .autoCommit( true )
-                                .principal(new NamePrincipal("postgres"))
+                                .jdbcProperty("schema", "theatre")
+                                .autoCommit(true)
+                                .principal(new NamePrincipal("root"))
                                 .credential(new SimplePassword("password"))
                         )
                 );

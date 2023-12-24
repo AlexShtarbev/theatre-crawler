@@ -3,6 +3,7 @@ package com.ays.theatre.crawler.theatreartbg.worker;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -10,6 +11,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import org.jboss.logging.Logger;
 
 import com.ays.theatre.crawler.global.dao.TheatrePlayDao;
+import com.ays.theatre.crawler.global.model.ImmutableTheatrePlayObject;
 import com.ays.theatre.crawler.tables.records.TheatrePlayRecord;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgCalendar;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgExtractedDayMetadata;
@@ -56,10 +58,9 @@ public class TheatreArtBgScraperWorker implements Runnable {
                     continue;
                 }
 
-                var metadata = maybeMetadata.get();
-                var calendar = payload.getCalendar();
-                var playMetadataRecords = getRecords(metadata, calendar);
-                theatrePlayDao.merge(playMetadataRecords);
+                var playMetadataRecords = getRecords(maybeMetadata.get(), payload.getCalendar());
+                var mergeResult = theatrePlayDao.merge(playMetadataRecords);
+                logMergeResult(mergeResult);
                 LOG.info(String.format("Finished scraping: %s", payload.getUrl()));
             } catch (Exception ex) {
                 LOG.error(ex);
@@ -73,14 +74,28 @@ public class TheatreArtBgScraperWorker implements Runnable {
                 .stream()
                 .map(play -> {
                     var localDateTime = LocalDateTime.of(calendar.getYear(), calendar.getMonth(),
-                                                 metadata.getDay(), play.getHour(), play.getMinute());
+                                                 metadata.getDay(), play.getHour(), play.getMinute())
+                            .toInstant(ZoneOffset.UTC);
 
                     return new TheatrePlayRecord()
                             .setTitle(play.getTitle())
                             .setUrl(play.getUrl())
                             .setTheatre(play.getTheatre())
-                            .setDate(OffsetDateTime.of(localDateTime, ZoneOffset.UTC))
-                            .setLastUpdated(OffsetDateTime.now(ZoneOffset.UTC));
+                                .setDate(OffsetDateTime.ofInstant(localDateTime, ZoneId.of("UTC")));
                 }).toList();
+    }
+
+
+
+    private void logMergeResult(List<ImmutableTheatrePlayObject> mergeResult) {
+        mergeResult.forEach(object -> {
+            if (object.getError().isPresent()) {
+                LOG.error(String.format("Failed merge for %s-%s", object.record().getUrl(),
+                                        object.record().getDate()), object.getError().get());
+            } else {
+                LOG.info(String.format("Merge result for %s-%s: %s", object.record().getUrl(),
+                                       object.record().getDate(), object.getChangeAction()));
+            }
+        });
     }
 }

@@ -58,7 +58,7 @@ public class TheatreArtBgJob {
     private void navigate(Page currentPage, String url) {
         for (int i = 0; i < MAX_NUM_RETRIES; i++) {
             try {
-                currentPage.setDefaultTimeout(10_000);
+                currentPage.setDefaultTimeout(30_000);
                 currentPage.navigate(url);
             } catch (Exception ex) {
                 LOG.info("Will retry failed navigation");

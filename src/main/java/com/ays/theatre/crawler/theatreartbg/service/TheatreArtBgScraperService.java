@@ -21,8 +21,6 @@ import jakarta.inject.Singleton;
 public class TheatreArtBgScraperService {
     private static final Logger LOG = Logger.getLogger(TheatreArtBgScraperService.class);
 
-    private final static Pattern PATTERN = Pattern.compile("(?<=______)(.*)(?=______)", Pattern.CASE_INSENSITIVE);
-
     public Optional<ImmutableTheatreArtBgExtractedDayMetadata> extractPlayData(Page page) {
         page.waitForSelector("td.left");
         var tableWithPlays = page.locator("td.left").locator("#left");
