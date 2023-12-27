@@ -12,5 +12,5 @@ public interface TheatrePlayObject {
 
     ChangeAction getChangeAction();
 
-    TheatrePlayRecord record();
+    TheatrePlayRecord getRecord();
 }

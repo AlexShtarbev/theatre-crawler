@@ -32,7 +32,7 @@ public class GoogleCalendarEventSchedulerWorker implements Runnable {
         while (true) {
             var schedulers = new ArrayList<>();
             while (!queue.isEmpty()) {
-                for (int i = 0; i < CONCURRENT_SCHEDULERS; i++) {
+                for (int i = 0; i < CONCURRENT_SCHEDULERS && !queue.isEmpty(); i++) {
                     var payload = queue.poll();
                     schedulers.add(CompletableFuture.runAsync(() -> {
                         googleCalendarService.createCalendarEvent(payload.getTitle(), payload.getTheatre(),

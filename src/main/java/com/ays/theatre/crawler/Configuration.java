@@ -4,16 +4,23 @@ import static io.agroal.api.configuration.AgroalConnectionPoolConfiguration.Conn
 import static java.time.Duration.ofSeconds;
 
 import java.sql.SQLException;
+import java.time.OffsetDateTime;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 
 import com.ays.theatre.crawler.calendar.ImmutableGoogleCalendarEventSchedulerPayload;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtQueuePayload;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 import io.agroal.api.AgroalDataSource;
 import io.agroal.api.configuration.AgroalDataSourceConfiguration;
@@ -44,6 +51,13 @@ public class Configuration {
     getGoogleCalendarEventSchedulerPayloadQueue() {
         return new ConcurrentLinkedQueue<>();
     }
+
+    @Produces
+    @Singleton
+    public Set<Pair<String, OffsetDateTime>> getPlaysToVisitSet() {
+        return ConcurrentHashMap.newKeySet();
+    }
+
     @Produces
     @Singleton
     @Named(GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR)
@@ -56,6 +70,16 @@ public class Configuration {
     @Named(CUSTOM_DSL)
     public DSLContext getHikariDslContext() throws SQLException {
         return DSL.using(getDatasource(), SQLDialect.POSTGRES);
+    }
+
+    @Produces
+    @Singleton
+    public ObjectMapper getObjectMapper() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.findAndRegisterModules();
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        objectMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        return objectMapper;
     }
 
     // https://stackoverflow.com/questions/68817155/how-to-define-a-data-source-programatically

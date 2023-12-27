@@ -14,8 +14,10 @@ import org.jooq.DSLContext;
 import com.ays.theatre.crawler.Tables;
 import com.ays.theatre.crawler.global.model.ChangeAction;
 import com.ays.theatre.crawler.global.model.ImmutableTheatrePlayObject;
+import com.ays.theatre.crawler.tables.records.TheatrePlayDetailsRecord;
 import com.ays.theatre.crawler.tables.records.TheatrePlayMetadataRecord;
 import com.ays.theatre.crawler.tables.records.TheatrePlayRecord;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
@@ -28,20 +30,24 @@ public class TheatrePlayDao {
     @Named(CUSTOM_DSL)
     DSLContext dslContext;
 
+    @Inject
+    ObjectMapper objectMapper;
+
     public List<ImmutableTheatrePlayObject> merge(List<TheatrePlayRecord> records) {
         return records.stream().map(record -> dslContext.transactionResult(configuration -> {
             var builder = ImmutableTheatrePlayObject.builder().record(record);
             try {
                 var fetchedRecord = fetchRecord(record, configuration);
                 if (fetchedRecord.isPresent()) {
-                    builder.changeAction(ChangeAction.NONE);
+                    builder = builder.changeAction(ChangeAction.NONE);
                 } else {
                     upsert(configuration.dsl(), record);
                     upsertMeta(configuration.dsl(), record);
-                    builder.changeAction(ChangeAction.NEW);
+                    builder = builder.changeAction(ChangeAction.NEW);
                 }
             } catch (Exception ex) {
-                builder.error(Optional.of(ex));
+                builder = builder.changeAction(ChangeAction.ERROR)
+                        .error(Optional.of(ex));
             }
 
             return  builder.build();
@@ -53,8 +59,8 @@ public class TheatrePlayDao {
                 configuration.dsl().selectFrom(Tables.THEATRE_PLAY)
                         .where(Tables.THEATRE_PLAY.URL.eq(record.getUrl()))
                         .and(Tables.THEATRE_PLAY.DATE.eq(record.getDate()))
-                        .fetchOne()
-                        .into(TheatrePlayRecord.class));
+                        .fetchOne())
+                .map(r -> r.into(TheatrePlayRecord.class));
     }
 
     private int upsert(DSLContext dslContext, TheatrePlayRecord record) {
@@ -75,6 +81,14 @@ public class TheatrePlayDao {
                 .set(metaRecord)
                 .onDuplicateKeyUpdate()
                 .set(metaRecord)
+                .execute();
+    }
+
+    public int upsertDetails(String url, String description) {
+        var record = new TheatrePlayDetailsRecord().setUrl(url).setDescription(description);
+        return dslContext.insertInto(Tables.THEATRE_PLAY_DETAILS).
+                set(record)
+                .onConflictDoNothing()
                 .execute();
     }
 }

@@ -1,8 +1,14 @@
 package com.ays.theatre.crawler.utils;
 
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
+
+import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgCalendar;
 
 public class DateUtils {
     public static Map<String, Integer> BULGARIAN_MONTH_TO_CALENDAR_MONTH_MAP = new HashMap<>() {{
@@ -28,6 +34,12 @@ public class DateUtils {
         calendar.set(Calendar.MILLISECOND, 0);
 
         return calendar;
+    }
+
+    public static OffsetDateTime toOffsetDateTime(int year, int month, int day, int hour, int minute) {
+        return OffsetDateTime.ofInstant(
+                LocalDateTime.of(year, month, day, hour, minute).toInstant(ZoneOffset.UTC),
+                ZoneId.of("UTC"));
     }
 
 }
