@@ -4,17 +4,18 @@
 
 package com.ays.theatre.crawler.theatreartbg.service;
 
-import java.time.OffsetDateTime;
-
-import org.jboss.logging.Logger;
-
 import com.ays.theatre.crawler.global.dao.TheatrePlayDao;
 import com.ays.theatre.crawler.global.service.TheatreService;
+import com.ays.theatre.crawler.tables.records.TheatrePlayDetailsRecord;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgPlayObject;
-import com.microsoft.playwright.Page;
-
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.htmlunit.WebClient;
+import org.htmlunit.html.DomNode;
+import org.htmlunit.html.HtmlPage;
+import org.jboss.logging.Logger;
+
+import java.util.stream.Collectors;
 
 @Singleton
 public class TheatreArtBgPlayService implements TheatreService<ImmutableTheatreArtBgPlayObject> {
@@ -24,16 +25,48 @@ public class TheatreArtBgPlayService implements TheatreService<ImmutableTheatreA
     TheatrePlayDao theatrePlayDao;
 
     @Override
-    public void scrape(ImmutableTheatreArtBgPlayObject obj, Page page) {
-        var playInfo = page.locator("div.actior");
-        var descriptionHtml =  playInfo.locator(":scope>div:below(table)>>nth=0").innerHTML();
+    public void scrape(ImmutableTheatreArtBgPlayObject obj,  String url) {
+        try (WebClient webClient = new WebClient()) {
+            LOG.info(String.format("[%s] Will try to get a connection to: ", url));
+            configureWebClient(webClient);
+            HtmlPage page = webClient.getPage(url);
+            LOG.info(String.format("[%s] Will get play info ", url));
+            var playInfo = page.querySelectorAll("div.actior").getFirst();
 
-        var productionCrew = playInfo.locator(":scope>table>tbody>tr>td>>nth=1");
-        var crewHtml = productionCrew.innerHTML().split("<table")[0];
+            var descriptionHtml = playInfo.getChildNodes().stream()
+                    .filter(domNode -> "div".equals(domNode.getLocalName()))
+                    .findFirst()
+                    .map(DomNode::asXml)
+                    .orElse("")
+                    .replaceAll("\u0000", ""); // remove null characters as per https://stackoverflow.com/questions/1347646/postgres-error-on-insert-error-invalid-byte-sequence-for-encoding-utf8-0x0;
 
-        var result = crewHtml + "<br>" + descriptionHtml;
-        result = result.replaceAll("\n", "").replace("\t", "");
-        LOG.info(String.format("%s", result));
-        theatrePlayDao.upsertDetails(page.url(), result);
+            LOG.info(String.format("[%s] Got play description", url));
+
+            var productionCrew = playInfo.querySelectorAll("table>tbody>tr>td").get(1);
+            var crewHtml = productionCrew.asXml().split("<table")[0].replaceAll("\u0000", ""); // remove null characters as per https://stackoverflow.com/questions/1347646/postgres-error-on-insert-error-invalid-byte-sequence-for-encoding-utf8-0x0;
+            LOG.info(String.format("[%s] Got play crew", url));
+
+            var ratingTable = page.querySelectorAll("div.right_content").getFirst().querySelectorAll("table>tbody>tr>td").get(1);
+            var ratingAndVotes = ratingTable.querySelectorAll("fount").stream().map(DomNode::asXml).collect(Collectors.joining(" "));
+
+            var record = new TheatrePlayDetailsRecord()
+                    .setUrl(url)
+                    .setRating(ratingAndVotes)
+                    .setCrew(crewHtml)
+                    .setDescription(descriptionHtml);
+            LOG.info(String.format("[%s] Storing result", url));
+            theatrePlayDao.upsertDetails(record);
+        } catch (Exception ex) {
+            LOG.error("An error occurred while trying to scrape " + url);
+            throw new RuntimeException(ex);
+        } finally {
+            LOG.info(String.format("[%s] Finished scraping", url));
+        }
+    }
+
+    private void configureWebClient(WebClient webClient) {
+        webClient.getOptions().setThrowExceptionOnScriptError(false);
+        webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
+        webClient.getOptions().setJavaScriptEnabled(false);
     }
 }

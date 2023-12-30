@@ -21,13 +21,15 @@ create table if not exists theatre.theatre_play_metadata (
 
 --changeset saleksandar:4
 ALTER TABLE theatre.theatre_play_metadata
-ADD FOREIGN KEY (url, date) REFERENCES theatre.theatre_play_metadata (url, date)
+ADD FOREIGN KEY (url, date) REFERENCES theatre.theatre_play (url, date)
 ON DELETE CASCADE ON UPDATE CASCADE;
 
 --changeset alex.shtarbev:5
 create table if not exists theatre.theatre_play_details (
      url                          text NOT NULL,
      description                  text NULL,
+     crew                         text NULL,
+     rating                       text NULL,
      PRIMARY KEY (url)
 );
 
@@ -35,6 +37,27 @@ create table if not exists theatre.theatre_play_details (
 CREATE INDEX theatre_play_url  ON theatre.theatre_play(url);
 
 --changeset saleksandar:7
-ALTER TABLE theatre.theatre_play_details
-ADD FOREIGN KEY (url) REFERENCES theatre.theatre_play_details (url)
-ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE OR REPLACE FUNCTION pos_org_rel_refresh()
+  RETURNS trigger AS
+$func$
+-- DECLARE
+--    r int;  -- not used in function body
+BEGIN
+-- IF TG_OP='UPDATE' THEN  -- redundant while func is only used in AFTER UPDATE trigger
+   DELETE FROM theatre.theatre_play_details
+   USING  theatre.theatre_play
+   WHERE  theatre.theatre_play.url = NEW.url
+   AND    theatre.theatre_play.url = s.theatre.theatre_play_details.url;
+-- END IF;
+
+RETURN NEW;  --  and don't place this inside the IF block either way
+
+END
+$func$  LANGUAGE plpgsql;  -- don't quote the language name
+
+--changeset saleksandar:8
+CREATE TRIGGER theatre_play_url_trigger
+AFTER DELETE
+ON theatre.theatre_play
+FOR EACH ROW
+EXECUTE PROCEDURE pos_org_rel_refresh();

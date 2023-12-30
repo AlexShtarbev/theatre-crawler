@@ -38,6 +38,7 @@ public class Configuration {
     public static final String CUSTOM_DSL = "CUSTOM_DSL";
     public static final String GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR = "GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR";
     public static final String JDBC_URL = "jdbc:postgresql://localhost:5432/root_db";
+    public static final String UNIQUE_PLAY_URL_SET = "UNIQUE_PLAY_URL_SET";
 
     @Produces
     @Singleton
@@ -54,7 +55,8 @@ public class Configuration {
 
     @Produces
     @Singleton
-    public Set<Pair<String, OffsetDateTime>> getPlaysToVisitSet() {
+    @Named(UNIQUE_PLAY_URL_SET)
+    public Set<String> getPlaysToVisitSet() {
         return ConcurrentHashMap.newKeySet();
     }
 

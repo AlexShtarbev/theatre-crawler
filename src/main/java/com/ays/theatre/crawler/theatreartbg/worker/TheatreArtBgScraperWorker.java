@@ -1,6 +1,7 @@
 
 package com.ays.theatre.crawler.theatreartbg.worker;
 
+import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -19,6 +20,8 @@ import com.ays.theatre.crawler.utils.PageUtils;
 import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 
 // https://playwright.dev/java/docs/multithreading
 public class TheatreArtBgScraperWorker implements Runnable {
@@ -28,7 +31,6 @@ public class TheatreArtBgScraperWorker implements Runnable {
     private final ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> queue;
     private final TheatreArtBgDayService theatreArtBgDayService;
     private final TheatreArtBgPlayService theatreArtBgPlayService;
-    private final Browser browser;
     private final int id;
 
     public TheatreArtBgScraperWorker(ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> queue,
@@ -37,7 +39,6 @@ public class TheatreArtBgScraperWorker implements Runnable {
                                      AtomicInteger workerIdPool) {
         this.theatreArtBgDayService = theatreArtBgDayService;
         this.theatreArtBgPlayService = theatreArtBgPlayService;
-        this.browser = Playwright.create().webkit().launch();
         this.queue = queue;
         this.id = workerIdPool.getAndIncrement();
     }
@@ -51,14 +52,17 @@ public class TheatreArtBgScraperWorker implements Runnable {
                 payload = queue.poll();
             } while (payload == null);
 
-            LOG.info(String.format("[%d] ==> Visiting URL: %s", id, payload.getUrl()));
-
-            try (var page = browser.newPage()) {
-                PageUtils.navigateWithRetry(page, payload.getUrl());
+            try {
                 if (payload.getObject() instanceof ImmutableTheatreArtBgCalendar) { // FIXME - custom object
-                    scrapeAndTime(theatreArtBgDayService, (ImmutableTheatreArtBgCalendar) payload.getObject(), page);
+                    LOG.info(String.format("[%d] ==> Visiting Day URL: %s", id, payload.getUrl()));
+                    scrapeAndTime(theatreArtBgDayService, (ImmutableTheatreArtBgCalendar) payload.getObject(),
+                            payload.getUrl());
                 } else if (payload.getObject() instanceof ImmutableTheatreArtBgPlayObject) {
-                    scrapeAndTime(theatreArtBgPlayService, (ImmutableTheatreArtBgPlayObject) payload.getObject(), page);
+                    LOG.info(String.format("[%d] ==> Visiting PLAY URL: %s", id, payload.getUrl()));
+                    scrapeAndTime(theatreArtBgPlayService, (ImmutableTheatreArtBgPlayObject) payload.getObject(),
+                            payload.getUrl());
+                } else {
+                    LOG.error("No matching service for " + payload.getUrl());
                 }
 
             } catch (Exception ex) {
@@ -67,14 +71,16 @@ public class TheatreArtBgScraperWorker implements Runnable {
         }
     }
 
-    private <T> void scrapeAndTime(TheatreService<T> service, T obj, Page page) {
+    private <T> void scrapeAndTime(TheatreService<T> service, T obj, String url) {
         var stopWatch = new StopWatch();
         stopWatch.start();
         try {
-            service.scrape(obj, page);
+            service.scrape(obj, url);
+        } catch (Exception ex) {
+            LOG.error(ex);
         } finally {
             stopWatch.stop();
-            LOG.info(String.format("[%d] Scraping %s took %dms", id, page.url(), stopWatch.getTime()));
+            LOG.info(String.format("[%d] Scraping %s took %dms", id, url, stopWatch.getTime()));
         }
     }
 }

@@ -1,19 +1,5 @@
 package com.ays.theatre.crawler.theatreartbg.service;
 
-import static com.ays.theatre.crawler.theatreartbg.TheatreArtBgConstants.BASE_URL;
-
-import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
-
-import org.apache.commons.lang3.tuple.Pair;
-import org.jboss.logging.Logger;
-
 import com.ays.theatre.crawler.global.dao.TheatrePlayDao;
 import com.ays.theatre.crawler.global.model.ChangeAction;
 import com.ays.theatre.crawler.global.model.ImmutableTheatrePlayObject;
@@ -26,49 +12,60 @@ import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgExtracted
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgPlayObject;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtQueuePayload;
 import com.ays.theatre.crawler.utils.DateUtils;
-import com.microsoft.playwright.Locator;
-import com.microsoft.playwright.Page;
-
+import com.ays.theatre.crawler.utils.PageUtils;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import jakarta.inject.Singleton;
+import org.apache.commons.lang3.tuple.Pair;
+import org.jboss.logging.Logger;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+
+import java.time.OffsetDateTime;
+import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
+import static com.ays.theatre.crawler.Configuration.UNIQUE_PLAY_URL_SET;
+import static com.ays.theatre.crawler.theatreartbg.TheatreArtBgConstants.BASE_URL;
 
 @Singleton
 public class TheatreArtBgDayService implements TheatreService<ImmutableTheatreArtBgCalendar> {
     private static final Logger LOG = Logger.getLogger(TheatreArtBgDayService.class);
-    private static final String HREF = "href";
-    private static final String SCOPE_A = ":scope a";
+    public static final String HREF = "href";
+    public static final String SCOPE_A = "a";
 
     @Inject
     TheatrePlayDao theatrePlayDao;
 
     @Inject
-    Set<Pair<String, OffsetDateTime>> playsToVisitSet;
+    @Named(UNIQUE_PLAY_URL_SET)
+    Set<String> playsToVisitSet;
 
     @Inject
     ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> queue;
 
-    public List<ImmutableTheatreArtBgCalendar> getCalendar(Page page) {
+    public List<ImmutableTheatreArtBgCalendar> getCalendar(Document page) {
         var date = DateUtils.getDateWithoutTimeUsingCalendar();
         var year = date.get(Calendar.YEAR);
 
-        var currentMonth = page.locator("div.month a");
-        var currentMonthName = currentMonth.innerText();
+        var currentMonth = page.select("div.month a").getFirst();
+        var currentMonthName = currentMonth.text();
 
-        var changeMonths = page.locator("div.change_month");
+        var changeMonths = page.select("div.change_month");
 
         List<ImmutableTheatreArtBgCalendar> list = new ArrayList<>();
 
         var month = DateUtils.BULGARIAN_MONTH_TO_CALENDAR_MONTH_MAP.get(currentMonthName.toLowerCase());
         list.add(ImmutableTheatreArtBgCalendar.builder()
-                         .month(month)
-                         .year(year)
-                         .url(TheatreArtBgConstants.BASE_URL)
-                         .build());
+                .month(month)
+                .year(year)
+                .url(TheatreArtBgConstants.BASE_URL)
+                .build());
 
-        changeMonths.all().forEach(locator -> {
-            var monthLink = locator.locator(SCOPE_A);
-            var url = monthLink.getAttribute(HREF);
-            var name = monthLink.innerText();
+        changeMonths.forEach(locator -> {
+            var monthLink = locator.select("a").getFirst();
+            var url = monthLink.attr(HREF);
+            var name = monthLink.text();
 
             var nextMonth = DateUtils.BULGARIAN_MONTH_TO_CALENDAR_MONTH_MAP.get(name.toLowerCase());
             var nextMonthYear = year;
@@ -77,24 +74,23 @@ public class TheatreArtBgDayService implements TheatreService<ImmutableTheatreAr
             }
 
             list.add(ImmutableTheatreArtBgCalendar.builder()
-                             .month(nextMonth)
-                             .year(nextMonthYear)
-                             .url(TheatreArtBgConstants.BASE_URL + url)
-                             .build());
+                    .month(nextMonth)
+                    .year(nextMonthYear)
+                    .url(TheatreArtBgConstants.BASE_URL + url)
+                    .build());
         });
 
         return list;
     }
 
-    public ArrayList<String> getAllDaysOfMonthsUrls(Page page) {
-        var calendar = page.locator("div.calendar");
-        var daysOfTheMonth = calendar.locator(":scope li");
-        var daysOfTheMonthCount = daysOfTheMonth.count();
+    public ArrayList<String> getAllDaysOfMonthsUrls(Document page) {
+        var calendar = page.select("div.calendar").getFirst();
+        var daysOfTheMonth = calendar.getElementsByTag("li");
+        var daysOfTheMonthCount = daysOfTheMonth.size();
 
         // skip all days before the current one
         int index = 0;
-        daysOfTheMonth.nth(index).getAttribute("class");
-        while (!Objects.equals(daysOfTheMonth.nth(index).getAttribute("class"), "current")) {
+        while (!Objects.equals(daysOfTheMonth.get(index).attr("class"), "current")) {
             index++;
         }
 
@@ -103,9 +99,9 @@ public class TheatreArtBgDayService implements TheatreService<ImmutableTheatreAr
 
         var nextLinks = new ArrayList<String>();
         for (; index < daysOfTheMonthCount; index++) {
-            var linkOfEachDay = daysOfTheMonth.nth(index).locator(SCOPE_A);
-            var href = linkOfEachDay.getAttribute(HREF);
-            var dayNumber = linkOfEachDay.innerText();
+            var linkOfEachDay = daysOfTheMonth.get(index).select("a");
+            var href = linkOfEachDay.attr(HREF);
+            var dayNumber = linkOfEachDay.text();
             nextLinks.add(TheatreArtBgConstants.BASE_URL + href);
             LOG.info(String.format("%s: %s", dayNumber, href));
         }
@@ -114,16 +110,23 @@ public class TheatreArtBgDayService implements TheatreService<ImmutableTheatreAr
     }
 
     @Override
-    public void scrape(ImmutableTheatreArtBgCalendar calendar, Page page) {
-        var maybeMetadata = extractPlayData(page);
-        if (maybeMetadata.isEmpty()) {
-            return;
-        }
+    public void scrape(ImmutableTheatreArtBgCalendar calendar, String url) {
+        try {
+            LOG.info("Will navigate to: " + url);
+            var page = PageUtils.navigateWithRetry(url);
+            LOG.info("Started scarping: " + url);
+            var maybeMetadata = extractPlayData(page, url);
+            if (maybeMetadata.isEmpty()) {
+                return;
+            }
 
-        var playMetadataRecords = getRecords(maybeMetadata.get(), calendar);
-        var mergeResult = theatrePlayDao.merge(playMetadataRecords);
-        runPostMergePlayScraping(mergeResult);
-        LOG.info(String.format("Finished scraping: %s", page.url()));
+            var playMetadataRecords = getRecords(maybeMetadata.get(), calendar);
+            var mergeResult = theatrePlayDao.merge(playMetadataRecords);
+            runPostMergePlayScraping(mergeResult);
+            LOG.info(String.format("Finished scraping: %s", url));
+        } catch (Exception ex) {
+            LOG.error(ex);
+        }
     }
 
     private List<TheatrePlayRecord> getRecords(
@@ -131,14 +134,19 @@ public class TheatreArtBgDayService implements TheatreService<ImmutableTheatreAr
         return metadata.getPlaysMetadata()
                 .stream()
                 .map(play -> {
-                    var localDateTime = DateUtils.toOffsetDateTime(calendar.getYear(), calendar.getMonth(),
-                                                         metadata.getDay(), play.getHour(), play.getMinute());
-                    return new TheatrePlayRecord()
-                            .setTitle(play.getTitle())
-                            .setUrl(play.getUrl())
-                            .setTheatre(play.getTheatre())
-                            .setDate(localDateTime);
-                }).toList();
+                    try {
+                        var localDateTime = DateUtils.toOffsetDateTime(calendar.getYear(), calendar.getMonth(),
+                                metadata.getDay(), play.getHour(), play.getMinute());
+                        return new TheatrePlayRecord()
+                                .setTitle(play.getTitle())
+                                .setUrl(play.getUrl())
+                                .setTheatre(play.getTheatre())
+                                .setDate(localDateTime);
+                    } catch (Exception ex) {
+                        LOG.error(ex);
+                        return null;
+                    }
+                }).filter(Objects::nonNull).toList();
     }
 
     private void runPostMergePlayScraping(List<ImmutableTheatrePlayObject> mergeResult) {
@@ -150,39 +158,41 @@ public class TheatreArtBgDayService implements TheatreService<ImmutableTheatreAr
                 LOG.info(String.format("Merge result for %s-%s: %s", object.getRecord().getUrl(),
                                        object.getRecord().getDate(), object.getChangeAction()));
                 if (object.getChangeAction().equals(ChangeAction.NEW)) {
-                    if (playsToVisitSet.add(Pair.of(object.getRecord().getUrl(), object.getRecord().getDate()))) {
-                        queue.add(ImmutableTheatreArtQueuePayload.builder()
-                                          .url(object.getRecord().getUrl())
-                                          .object(ImmutableTheatreArtBgPlayObject.builder().build())
-                                          .build());
+                    var url = object.getRecord().getUrl();
+                    if (playsToVisitSet.contains(url)) {
+                        return;
                     }
+                    playsToVisitSet.add(url);
+                    queue.add(ImmutableTheatreArtQueuePayload.builder()
+                                      .url(object.getRecord().getUrl())
+                                      .object(ImmutableTheatreArtBgPlayObject.builder().build())
+                                      .build());
+
                 }
             }
         });
     }
 
-    public Optional<ImmutableTheatreArtBgExtractedDayMetadata> extractPlayData(Page page) {
-        page.waitForSelector("td.left");
-        var tableWithPlays = page.locator("td.left").locator("#left");
+    public Optional<ImmutableTheatreArtBgExtractedDayMetadata> extractPlayData(Document page, String url) {
+        var tableWithPlays = page.select("td.left").select("#left");
 
-        var rows = tableWithPlays.locator(":scope div.padding div.postanovka tr");
-        var rowCount = rows.count();
+        var rows = tableWithPlays.select("div.padding div.postanovka tr");
+        var rowCount = rows.size();
         LOG.info("logs " + rowCount);
 
         if (rowCount == 0) {
             return Optional.empty();
         }
 
-        var plays = rows.locator(":scope div.text");
-        var playsCount = plays.count();
+        var plays = rows.select("div.text");
+        var playsCount = plays.size();
         LOG.info("play: " + playsCount);
 
-        var url = page.url();
         var dayOfMonth = getDayOfMonth(url);
         var playsMetadata = new ArrayList<ImmutableTheatreArtBgExtractedPlayMetadata>();
 
         for (int i = 0; i < playsCount; i++) {
-            playsMetadata.addAll(getPlayMetadata(plays.nth(i), url));
+            playsMetadata.addAll(getPlayMetadata(plays.get(i)));
         }
 
         return Optional.of(ImmutableTheatreArtBgExtractedDayMetadata.builder()
@@ -220,17 +230,17 @@ public class TheatreArtBgDayService implements TheatreService<ImmutableTheatreAr
         return dateParts;
     }
 
-    private List<ImmutableTheatreArtBgExtractedPlayMetadata> getPlayMetadata(Locator play, String url) {
-        var link = play.locator(":scope h2 a");
-        var href = link.getAttribute("href");
-        var title = link.getAttribute("title");
+    private List<ImmutableTheatreArtBgExtractedPlayMetadata> getPlayMetadata(Element play) {
+        var link = play.select("h2 a");
+        var href = link.attr("href");
+        var title = link.attr("title");
 
-        var theatre = play.locator(":scope a>>nth=1");
-        var theatreName = theatre.innerText();
+        var theatre = play.select("a").get(1);
+        var theatreName = theatre.text();
 
-        var dates = play.locator(":scope div.date strong");
-        return dates.all().stream().map(date -> {
-            var hourMinute = date.textContent().split(" ")[0].split("\\.");
+        var dates = play.select("div.date strong");
+        return dates.stream().map(date -> {
+            var hourMinute = date.text().split(" ")[0].split("\\.");
             var hour = Integer.parseInt(hourMinute[0]);
             var minute = Integer.parseInt(hourMinute[1]);
             LOG.info(String.format("%s: %s @ %d:%d, %s", title, href, hour, minute, theatreName));

@@ -30,8 +30,9 @@ public class TheatreArtBgScraperWorkerPool {
 
     public void startWorkers() {
         for (int i = 0; i < poolSize; i++) {
-            Thread.ofVirtual().start(new TheatreArtBgScraperWorker(queue, theatreArtBgDayService,
-                                                                   theatreArtBgPlayService, workerIdPool));
+            var t = new Thread(new TheatreArtBgScraperWorker(queue, theatreArtBgDayService,
+                    theatreArtBgPlayService, workerIdPool));
+            t.start();
         }
     }
 }

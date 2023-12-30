@@ -84,8 +84,7 @@ public class TheatrePlayDao {
                 .execute();
     }
 
-    public int upsertDetails(String url, String description) {
-        var record = new TheatrePlayDetailsRecord().setUrl(url).setDescription(description);
+    public int upsertDetails(TheatrePlayDetailsRecord record) {
         return dslContext.insertInto(Tables.THEATRE_PLAY_DETAILS).
                 set(record)
                 .onConflictDoNothing()
