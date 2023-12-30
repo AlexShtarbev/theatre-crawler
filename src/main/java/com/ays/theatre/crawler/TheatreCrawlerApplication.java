@@ -52,8 +52,8 @@ public class TheatreCrawlerApplication implements QuarkusApplication {
 
     @Override
     public int run(String... args) {
-        var url = "https://theatre.art.bg/разговори-с-мама_3550_8_20";
-        theatreArtBgPlayService.scrape(ImmutableTheatreArtBgPlayObject.builder().build(), url);
+//        var url = "https://theatre.art.bg/разговори-с-мама_3550_8_20";
+//        theatreArtBgPlayService.scrape(ImmutableTheatreArtBgPlayObject.builder().build(), url);
         //
         //        Thread.ofVirtual().start(googleCalendarEventSchedulerWorker);
         //
@@ -65,10 +65,10 @@ public class TheatreCrawlerApplication implements QuarkusApplication {
         //                                  .startTime(OffsetDateTime.now())
         //                                  .build());
 //
-//        var workerPool = new TheatreArtBgScraperWorkerPool(theatreArtBgDayService, theatreArtBgPlayService, queue,
-//                                                           PARALLEL_WORKERS_SIZE);
-//        workerPool.startWorkers();
-//        theatreArtBgJob.run();
+        var workerPool = new TheatreArtBgScraperWorkerPool(theatreArtBgDayService, theatreArtBgPlayService, queue,
+                                                           PARALLEL_WORKERS_SIZE);
+        workerPool.startWorkers();
+        theatreArtBgJob.run();
 
         return 0;
     }
