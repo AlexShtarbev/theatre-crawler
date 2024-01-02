@@ -2,6 +2,8 @@ package com.ays.theatre.crawler.calendar;
 
 import static com.ays.theatre.crawler.Configuration.GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR;
 
+import com.ays.theatre.crawler.calendar.ImmutableGoogleCalendarEventSchedulerPayload;
+
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -35,8 +37,9 @@ public class GoogleCalendarEventSchedulerWorker implements Runnable {
                 for (int i = 0; i < CONCURRENT_SCHEDULERS && !queue.isEmpty(); i++) {
                     var payload = queue.poll();
                     schedulers.add(CompletableFuture.runAsync(() -> {
+                        var eventDescription = GoogleCalendarDescriptionFormatter.getHtmlEventDescription(payload);
                         googleCalendarService.createCalendarEvent(payload.getTitle(), payload.getTheatre(),
-                                                                  payload.getUrl(), payload.getStartTime());
+                                eventDescription, payload.getUrl(), payload.getStartTime());
                     }, executor));
                 }
 

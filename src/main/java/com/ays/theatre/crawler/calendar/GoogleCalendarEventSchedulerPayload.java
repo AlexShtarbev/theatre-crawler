@@ -15,5 +15,8 @@ public interface GoogleCalendarEventSchedulerPayload {
     String getUrl();
     String getTitle();
     String getTheatre();
+    String getCrew();
+    String getDescription();
+    String getRating();
     OffsetDateTime getStartTime();
 }

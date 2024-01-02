@@ -1,27 +1,23 @@
 
 package com.ays.theatre.crawler.global.dao;
 
-import static com.ays.theatre.crawler.Configuration.CUSTOM_DSL;
-
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.List;
-import java.util.Optional;
-
-import org.jooq.Configuration;
-import org.jooq.DSLContext;
-
 import com.ays.theatre.crawler.Tables;
 import com.ays.theatre.crawler.global.model.ChangeAction;
 import com.ays.theatre.crawler.global.model.ImmutableTheatrePlayObject;
 import com.ays.theatre.crawler.tables.records.TheatrePlayDetailsRecord;
-import com.ays.theatre.crawler.tables.records.TheatrePlayMetadataRecord;
 import com.ays.theatre.crawler.tables.records.TheatrePlayRecord;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
+import org.jooq.Configuration;
+import org.jooq.DSLContext;
+import org.jooq.impl.DSL;
+
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import static com.ays.theatre.crawler.Configuration.CUSTOM_DSL;
 
 @Singleton
 public class TheatrePlayDao {
@@ -29,9 +25,6 @@ public class TheatrePlayDao {
     @Inject
     @Named(CUSTOM_DSL)
     DSLContext dslContext;
-
-    @Inject
-    ObjectMapper objectMapper;
 
     public List<ImmutableTheatrePlayObject> merge(List<TheatrePlayRecord> records) {
         return records.stream().map(record -> dslContext.transactionResult(configuration -> {
@@ -42,7 +35,6 @@ public class TheatrePlayDao {
                     builder = builder.changeAction(ChangeAction.NONE);
                 } else {
                     upsert(configuration.dsl(), record);
-                    upsertMeta(configuration.dsl(), record);
                     builder = builder.changeAction(ChangeAction.NEW);
                 }
             } catch (Exception ex) {
@@ -63,6 +55,15 @@ public class TheatrePlayDao {
                 .map(r -> r.into(TheatrePlayRecord.class));
     }
 
+    public Optional<TheatrePlayRecord> getPlayFromUrlAndDate(String url, OffsetDateTime dateTime) {
+        return Optional.ofNullable(
+                        dslContext.selectFrom(Tables.THEATRE_PLAY)
+                                .where(Tables.THEATRE_PLAY.URL.eq(url))
+                                .and(Tables.THEATRE_PLAY.DATE.eq(dateTime))
+                                .fetchOne())
+                .map(r -> r.into(TheatrePlayRecord.class));
+    }
+
     private int upsert(DSLContext dslContext, TheatrePlayRecord record) {
         return dslContext.insertInto(Tables.THEATRE_PLAY)
                 .set(record)
@@ -71,23 +72,26 @@ public class TheatrePlayDao {
                 .execute();
     }
 
-    private int upsertMeta(DSLContext dslContext, TheatrePlayRecord record) {
-        var metaRecord = new TheatrePlayMetadataRecord();
-        metaRecord.setUrl(record.getUrl());
-        metaRecord.setDate(record.getDate());
-        metaRecord.setLastUpdated(OffsetDateTime.now(ZoneOffset.UTC));
-
-        return dslContext.insertInto(Tables.THEATRE_PLAY_METADATA)
-                .set(metaRecord)
+    public int upsertDetails(TheatrePlayDetailsRecord record) {
+        return dslContext.insertInto(Tables.THEATRE_PLAY_DETAILS)
+                .set(record)
                 .onDuplicateKeyUpdate()
-                .set(metaRecord)
+                .set(record)
                 .execute();
     }
 
-    public int upsertDetails(TheatrePlayDetailsRecord record) {
-        return dslContext.insertInto(Tables.THEATRE_PLAY_DETAILS).
-                set(record)
-                .onConflictDoNothing()
-                .execute();
+    public Optional<TheatrePlayDetailsRecord> getTheatrePlayDetails(String url) {
+        return Optional.ofNullable(dslContext.selectFrom(Tables.THEATRE_PLAY_DETAILS)
+                .where(Tables.THEATRE_PLAY_DETAILS.URL.eq(url))
+                .fetchOneInto(TheatrePlayDetailsRecord.class));
+    }
+
+    public List<String> getTheatrePlaysByOriginAndDatePaged(String origin, OffsetDateTime dateTime) {
+        return dslContext.selectDistinct(Tables.THEATRE_PLAY.URL)
+                .from(Tables.THEATRE_PLAY)
+                .where(Tables.THEATRE_PLAY.ORIGIN.eq(origin))
+                .and(Tables.THEATRE_PLAY.DATE.greaterOrEqual(dateTime))
+                .orderBy(Tables.THEATRE_PLAY.URL.asc())
+                .fetchInto(String.class);
     }
 }
