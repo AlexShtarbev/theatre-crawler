@@ -1,8 +1,6 @@
-package com.ays.theatre.crawler.calendar;
+package com.ays.theatre.crawler.calendar.base;
 
 import static com.ays.theatre.crawler.Configuration.GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR;
-
-import com.ays.theatre.crawler.calendar.ImmutableGoogleCalendarEventSchedulerPayload;
 
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
@@ -10,7 +8,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 
-import jakarta.inject.Inject;
+import com.ays.theatre.crawler.calendar.model.ImmutableGoogleCalendarEventSchedulerPayload;
+
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 
@@ -19,15 +18,18 @@ public class GoogleCalendarEventSchedulerWorker implements Runnable {
 
     private static final int CONCURRENT_SCHEDULERS = 10;
 
-    @Inject
-    GoogleCalendarService googleCalendarService;
+    private final GoogleCalendarService googleCalendarService;
+    private final ConcurrentLinkedQueue<ImmutableGoogleCalendarEventSchedulerPayload> queue;
+    private final Executor executor;
 
-    @Inject
-    ConcurrentLinkedQueue<ImmutableGoogleCalendarEventSchedulerPayload> queue;
-
-    @Inject
-    @Named(GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR)
-    Executor executor;
+    public GoogleCalendarEventSchedulerWorker(
+            GoogleCalendarService googleCalendarService,
+            ConcurrentLinkedQueue<ImmutableGoogleCalendarEventSchedulerPayload> queue,
+            @Named(GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR) Executor executor) {
+        this.googleCalendarService = googleCalendarService;
+        this.queue = queue;
+        this.executor = executor;
+    }
 
     @Override
     public void run() {
@@ -37,9 +39,7 @@ public class GoogleCalendarEventSchedulerWorker implements Runnable {
                 for (int i = 0; i < CONCURRENT_SCHEDULERS && !queue.isEmpty(); i++) {
                     var payload = queue.poll();
                     schedulers.add(CompletableFuture.runAsync(() -> {
-                        var eventDescription = GoogleCalendarDescriptionFormatter.getHtmlEventDescription(payload);
-                        googleCalendarService.createCalendarEvent(payload.getTitle(), payload.getTheatre(),
-                                eventDescription, payload.getUrl(), payload.getStartTime());
+                        googleCalendarService.createCalendarEvent(payload);
                     }, executor));
                 }
 

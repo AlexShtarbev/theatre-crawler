@@ -1,4 +1,4 @@
-package com.ays.theatre.crawler.utils;
+package com.ays.theatre.crawler.core.utils;
 
 import org.apache.commons.lang3.time.StopWatch;
 import org.htmlunit.WebClient;
@@ -6,8 +6,6 @@ import org.htmlunit.html.HtmlPage;
 import org.jboss.logging.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-
-import java.net.URL;
 
 public class PageUtils {
     private static final Logger LOG = Logger.getLogger(PageUtils.class);

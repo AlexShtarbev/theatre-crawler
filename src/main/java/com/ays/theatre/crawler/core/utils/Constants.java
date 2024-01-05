@@ -1,5 +1,4 @@
-
-package com.ays.theatre.crawler.global;
+package com.ays.theatre.crawler.core.utils;
 
 public class Constants {
 

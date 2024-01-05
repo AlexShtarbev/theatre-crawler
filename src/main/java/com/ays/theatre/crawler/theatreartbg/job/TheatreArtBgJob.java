@@ -1,15 +1,14 @@
 
 package com.ays.theatre.crawler.theatreartbg.job;
 
-import com.ays.theatre.crawler.global.Constants;
-import com.ays.theatre.crawler.global.dao.TheatrePlayDao;
-import com.ays.theatre.crawler.global.service.LatchService;
-import com.ays.theatre.crawler.tables.records.TheatrePlayRecord;
+import com.ays.theatre.crawler.core.utils.Constants;
+import com.ays.theatre.crawler.core.dao.TheatrePlayDao;
+import com.ays.theatre.crawler.core.service.LatchService;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgCalendar;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgPlayObject;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtQueuePayload;
 import com.ays.theatre.crawler.theatreartbg.service.TheatreArtBgDayService;
-import com.ays.theatre.crawler.utils.PageUtils;
+import com.ays.theatre.crawler.core.utils.PageUtils;
 import io.quarkus.logging.Log;
 import jakarta.inject.Singleton;
 import org.jboss.logging.Logger;

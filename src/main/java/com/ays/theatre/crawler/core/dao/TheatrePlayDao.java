@@ -1,30 +1,34 @@
 
-package com.ays.theatre.crawler.global.dao;
+package com.ays.theatre.crawler.core.dao;
 
-import com.ays.theatre.crawler.Tables;
-import com.ays.theatre.crawler.global.model.ChangeAction;
-import com.ays.theatre.crawler.global.model.ImmutableTheatrePlayObject;
-import com.ays.theatre.crawler.tables.records.TheatrePlayDetailsRecord;
-import com.ays.theatre.crawler.tables.records.TheatrePlayRecord;
-import jakarta.inject.Inject;
-import jakarta.inject.Named;
-import jakarta.inject.Singleton;
-import org.jooq.Configuration;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import static com.ays.theatre.crawler.Configuration.CUSTOM_DSL;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import static com.ays.theatre.crawler.Configuration.CUSTOM_DSL;
+import org.jooq.Configuration;
+import org.jooq.DSLContext;
+
+import com.ays.theatre.crawler.Tables;
+import com.ays.theatre.crawler.core.model.ChangeAction;
+import com.ays.theatre.crawler.core.model.ImmutablePair;
+import com.ays.theatre.crawler.core.model.ImmutableTheatrePlayObject;
+import com.ays.theatre.crawler.tables.records.TheatrePlayDetailsRecord;
+import com.ays.theatre.crawler.tables.records.TheatrePlayRecord;
+import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgTicketPayload;
+
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 
 @Singleton
 public class TheatrePlayDao {
 
-    @Inject
-    @Named(CUSTOM_DSL)
-    DSLContext dslContext;
+    private final DSLContext dslContext;
+
+    public TheatrePlayDao(@Named(CUSTOM_DSL) DSLContext dslContext) {
+        this.dslContext = dslContext;
+    }
 
     public List<ImmutableTheatrePlayObject> merge(List<TheatrePlayRecord> records) {
         return records.stream().map(record -> dslContext.transactionResult(configuration -> {
@@ -44,6 +48,16 @@ public class TheatrePlayDao {
 
             return  builder.build();
         })).toList();
+    }
+
+    public void reSyncRecords(List<ImmutablePair<TheatrePlayRecord, TheatrePlayDetailsRecord>> recordPairs) {
+        dslContext.transaction(configuration -> {
+            var dsl = configuration.dsl();
+            recordPairs.forEach(pair -> {
+                insertPlay(dsl, pair.getFirst());
+                insertDetails(dsl, pair.getSecond());
+            });
+        });
     }
 
     private static Optional<TheatrePlayRecord> fetchRecord(TheatrePlayRecord record, Configuration configuration) {
@@ -71,12 +85,25 @@ public class TheatrePlayDao {
                 .set(record)
                 .execute();
     }
+    private int insertPlay(DSLContext dslContext, TheatrePlayRecord record) {
+        return dslContext.insertInto(Tables.THEATRE_PLAY)
+                .set(record)
+                .onConflictDoNothing()
+                .execute();
+    }
 
     public int upsertDetails(TheatrePlayDetailsRecord record) {
         return dslContext.insertInto(Tables.THEATRE_PLAY_DETAILS)
                 .set(record)
                 .onDuplicateKeyUpdate()
                 .set(record)
+                .execute();
+    }
+
+    public int insertDetails(DSLContext dslContext, TheatrePlayDetailsRecord record) {
+        return dslContext.insertInto(Tables.THEATRE_PLAY_DETAILS)
+                .set(record)
+                .onConflictDoNothing()
                 .execute();
     }
 
@@ -94,4 +121,22 @@ public class TheatrePlayDao {
                 .orderBy(Tables.THEATRE_PLAY.URL.asc())
                 .fetchInto(String.class);
     }
+
+    public List<OffsetDateTime> getDatesOfPlaysByOriginAndUrl(String origin, String url) {
+        return dslContext.select(Tables.THEATRE_PLAY.DATE)
+                .from(Tables.THEATRE_PLAY)
+                .where(Tables.THEATRE_PLAY.ORIGIN.eq(origin))
+                .and(Tables.THEATRE_PLAY.URL.eq(url))
+                .fetchInto(OffsetDateTime.class);
+    }
+
+    public int updatePlayTicketLink(ImmutableTheatreArtBgTicketPayload payload, String origin) {
+        return dslContext.update(Tables.THEATRE_PLAY)
+                .set(Tables.THEATRE_PLAY.TICKETS_URL, payload.getTicketUrl())
+                .where(Tables.THEATRE_PLAY.URL.eq(payload.getUrl()))
+                .and(Tables.THEATRE_PLAY.DATE.eq(payload.getDate()))
+                .and(Tables.THEATRE_PLAY.ORIGIN.eq(origin))
+                .execute();
+    }
+
 }

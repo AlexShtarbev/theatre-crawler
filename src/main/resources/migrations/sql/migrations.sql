@@ -10,6 +10,7 @@ create table if not exists theatre.theatre_play (
     origin                       text NOT NULL,
     date                         timestamptz NOT NULL,
     last_updated                 timestamptz DEFAULT (now()),
+    tickets_url                  text NULL,
     PRIMARY KEY (url, date)
 );
 
@@ -25,5 +26,6 @@ create table if not exists theatre.theatre_play_details (
      description                  text NULL,
      crew                         text NULL,
      rating                       text NULL,
+     origin                       text NULL,
      PRIMARY KEY (url)
 );

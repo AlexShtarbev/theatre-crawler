@@ -1,4 +1,4 @@
-package com.ays.theatre.crawler.global.model;
+package com.ays.theatre.crawler.core.model;
 
 import java.util.Optional;
 

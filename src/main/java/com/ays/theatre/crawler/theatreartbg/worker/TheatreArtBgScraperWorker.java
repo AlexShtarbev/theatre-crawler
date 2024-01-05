@@ -1,27 +1,18 @@
 
 package com.ays.theatre.crawler.theatreartbg.worker;
 
-import java.io.IOException;
-import java.time.OffsetDateTime;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.time.StopWatch;
 import org.jboss.logging.Logger;
 
-import com.ays.theatre.crawler.global.dao.TheatrePlayDao;
-import com.ays.theatre.crawler.global.service.TheatreService;
+import com.ays.theatre.crawler.core.service.TheatreService;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgCalendar;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgPlayObject;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtQueuePayload;
 import com.ays.theatre.crawler.theatreartbg.service.TheatreArtBgDayService;
 import com.ays.theatre.crawler.theatreartbg.service.TheatreArtBgPlayService;
-import com.ays.theatre.crawler.utils.PageUtils;
-import com.microsoft.playwright.Browser;
-import com.microsoft.playwright.Page;
-import com.microsoft.playwright.Playwright;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 
 // https://playwright.dev/java/docs/multithreading
 public class TheatreArtBgScraperWorker implements Runnable {

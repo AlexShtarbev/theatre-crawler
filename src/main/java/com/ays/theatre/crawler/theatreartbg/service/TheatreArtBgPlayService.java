@@ -1,19 +1,24 @@
 package com.ays.theatre.crawler.theatreartbg.service;
 
-import com.ays.theatre.crawler.global.dao.TheatrePlayDao;
-import com.ays.theatre.crawler.global.service.LatchService;
-import com.ays.theatre.crawler.global.service.TheatreService;
+import static com.ays.theatre.crawler.core.utils.DateUtils.BULGARIAN_MONTH_TO_CALENDAR_MONTH_MAP;
+
+import com.ays.theatre.crawler.core.dao.TheatrePlayDao;
+import com.ays.theatre.crawler.core.service.LatchService;
+import com.ays.theatre.crawler.core.service.TheatreService;
 import com.ays.theatre.crawler.tables.records.TheatrePlayDetailsRecord;
-import com.ays.theatre.crawler.global.Constants;
+import com.ays.theatre.crawler.core.utils.Constants;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgPlayObject;
-import com.ays.theatre.crawler.utils.PageUtils;
-import jakarta.inject.Inject;
+import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgTicketPayload;
+import com.ays.theatre.crawler.core.utils.PageUtils;
 import jakarta.inject.Singleton;
 import org.htmlunit.WebClient;
 import org.htmlunit.html.*;
 import org.jboss.logging.Logger;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Singleton
 public class TheatreArtBgPlayService implements TheatreService<ImmutableTheatreArtBgPlayObject> {
@@ -44,13 +49,14 @@ public class TheatreArtBgPlayService implements TheatreService<ImmutableTheatreA
 
             var ratingAndVotes = getRatingAndVotes(page);
 
-            var record = new TheatrePlayDetailsRecord()
-                    .setUrl(url)
-                    .setRating(ratingAndVotes)
-                    .setCrew(crewHtml)
-                    .setDescription(descriptionHtml);
+            var record = getPlayRecord(url, ratingAndVotes, crewHtml, descriptionHtml);
             LOG.info(String.format("[%s] Storing result", url));
             theatrePlayDao.upsertDetails(record);
+
+            // update the links to any offered tickets
+            var ticketsLinks = getTicketsLinks(playInfo, url);
+            ticketsLinks.forEach(
+                    payload -> theatrePlayDao.updatePlayTicketLink(payload, Constants.THEATRE_ART_BG_ORIGIN));
         } catch (Exception ex) {
             LOG.error("An error occurred while trying to scrape " + url);
             throw new RuntimeException(ex);
@@ -126,9 +132,50 @@ public class TheatreArtBgPlayService implements TheatreService<ImmutableTheatreA
                 .replaceAll("\u0000", "");
     }
 
+    private List<ImmutableTheatreArtBgTicketPayload> getTicketsLinks(DomNode playInfo, String url) {
+        var dates = theatrePlayDao.getDatesOfPlaysByOriginAndUrl(Constants.THEATRE_ART_BG_ORIGIN, url);
+        var dayAndMonthYToDateMap = dates.stream()
+                .collect(Collectors.toMap(
+                        date -> String.format("%d-%d", date.getDayOfMonth(), date.getMonthValue()),
+                        Function.identity()));
+
+        var playTicketsDomNodeList = playInfo.querySelectorAll("td.ptd_predi");
+        return playTicketsDomNodeList.stream().map(ticketRow -> {
+            var ticketLink = ticketRow.querySelector("a.times\\ link_kupi_bilet");
+            if (ticketLink == null) {
+                return null;
+            }
+            var dayAndMonth = ticketRow.querySelector("div.mesec_data").getChildNodes();
+            var day = dayAndMonth.get(0).getTextContent();
+            var month = dayAndMonth.get(1).getTextContent();
+            var monthNumber = BULGARIAN_MONTH_TO_CALENDAR_MONTH_MAP.get(month.toLowerCase());
+            var dateTime = dayAndMonthYToDateMap.get(String.format("%s-%d", day, monthNumber));
+            if (dateTime == null) {
+                LOG.error(String.format("Failed to locate ticket url for %s and date %s %s", url, day, month));
+                return null;
+            }
+            var ticketUrl = ticketLink.getAttributes().getNamedItem("href").getTextContent();
+            return ImmutableTheatreArtBgTicketPayload.builder()
+                    .url(url)
+                    .date(dateTime)
+                    .ticketUrl(String.format("%s%s", Constants.THEATRE_ART_BG_BASE_URL, ticketUrl))
+                    .build();
+        }).filter(Objects::nonNull).collect(Collectors.toList());
+    }
+
     private void configureWebClient(WebClient webClient) {
         webClient.getOptions().setThrowExceptionOnScriptError(false);
         webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
         webClient.getOptions().setJavaScriptEnabled(false);
+    }
+
+    private static TheatrePlayDetailsRecord getPlayRecord(String url, String ratingAndVotes, String crewHtml,
+                                                          String descriptionHtml) {
+        return new TheatrePlayDetailsRecord()
+                .setUrl(url)
+                .setRating(ratingAndVotes)
+                .setCrew(crewHtml)
+                .setDescription(descriptionHtml)
+                .setOrigin(Constants.THEATRE_ART_BG_ORIGIN);
     }
 }

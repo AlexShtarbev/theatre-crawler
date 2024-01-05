@@ -1,4 +1,4 @@
-package com.ays.theatre.crawler.calendar;
+package com.ays.theatre.crawler.calendar.base;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -9,6 +9,7 @@ import java.util.List;
 
 import org.jboss.logging.Logger;
 
+import com.ays.theatre.crawler.calendar.model.ImmutableGoogleCalendarEventSchedulerPayload;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -48,27 +49,43 @@ public class GoogleCalendarService {
     // title:IMG_0039.HEIC
     // mimetype:image/heif
     // https://developers.google.com/calendar/api/v3/reference/events/insert
-    public void createCalendarEvent(String title, String location, String description, String url, OffsetDateTime dateTime) {
-        Event event = new Event()
-                .setSummary(title)
-                .setLocation(location)
-                .setDescription(description)
-                .setStart(getEventDateTime(dateTime))
-                .setEnd(getEventDateTime(dateTime.plusMinutes(10)));
+    public Event createCalendarEvent(ImmutableGoogleCalendarEventSchedulerPayload payload) {
+        var eventDescription = GoogleCalendarDescriptionFormatter.getHtmlEventDescription(payload);
+        var event = new Event()
+                .setSummary(payload.getTitle())
+                .setLocation(payload.getTheatre())
+                .setDescription(eventDescription)
+                .setStart(getEventDateTime(payload.getStartTime()))
+                .setEnd(getEventDateTime(payload.getStartTime().plusMinutes(10)));
+
+
+        // FIXME
+        getEventById("afmf28kv96g24siu0pqasc99m0");
 
         try {
-            CALENDAR_SERVICE.events().insert(CALENDAR_ID, event).execute();
+            return CALENDAR_SERVICE.events().insert(CALENDAR_ID, event).execute();
         } catch (IOException ex) {
-            throw new RuntimeException(String.format("[%s] Failed to create Google Calendar event for %s-%s", url, title,
-                    location), ex);
+            throw new RuntimeException(String.format("[%s] Failed to create Google Calendar event for %s-%s",
+                                                     payload.getUrl(), payload.getTitle(), payload.getTheatre()), ex);
         }
+    }
 
+    public Event getEventById(String eventId) {
         try {
-            var result = CALENDAR_SERVICE.events().get(CALENDAR_ID, "afmf28kv96g24siu0pqasc99m0").execute();
-            result.getAttachments()
-                    .forEach(a -> LOG.info(String.format("utl:%s\ntitle:%s\nmimetype:%s",
-                                                         a.getFileUrl(), a.getTitle(), a.getMimeType())));
+            var result = CALENDAR_SERVICE.events().get(CALENDAR_ID, eventId).execute();
+            // FIXME
+            LOG.info(String.format("EVENT %s\n%s\n%s\n%s",result.getId(), result.getSummary(),
+                                   result.getLocation(), result.getDescription()));
 
+            // FIXME
+            var attachments = result.getAttachments();
+            if (attachments != null) {
+                attachments
+                        .forEach(a -> LOG.info(String.format("utl:%s\ntitle:%s\nmimetype:%s",
+                                                             a.getFileUrl(), a.getTitle(), a.getMimeType())));
+            }
+
+            return result;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

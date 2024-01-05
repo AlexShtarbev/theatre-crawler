@@ -1,12 +1,12 @@
 package com.ays.theatre.crawler;
 
-import com.ays.theatre.crawler.calendar.GoogleCalendarDescriptionFormatter;
-import com.ays.theatre.crawler.calendar.GoogleCalendarEventSchedulerWorker;
-import com.ays.theatre.crawler.calendar.GoogleCalendarService;
-import com.ays.theatre.crawler.calendar.ImmutableGoogleCalendarEventSchedulerPayload;
-import com.ays.theatre.crawler.global.Constants;
-import com.ays.theatre.crawler.global.dao.TheatrePlayDao;
-import com.ays.theatre.crawler.global.service.LatchService;
+import com.ays.theatre.crawler.calendar.base.GoogleCalendarEventSchedulerWorker;
+import com.ays.theatre.crawler.calendar.base.GoogleCalendarService;
+import com.ays.theatre.crawler.calendar.model.ImmutableGoogleCalendarEventSchedulerPayload;
+import com.ays.theatre.crawler.calendar.resync.GoogleCalendarReSyncService;
+import com.ays.theatre.crawler.core.utils.Constants;
+import com.ays.theatre.crawler.core.dao.TheatrePlayDao;
+import com.ays.theatre.crawler.core.service.LatchService;
 import com.ays.theatre.crawler.tables.records.TheatrePlayDetailsRecord;
 import com.ays.theatre.crawler.tables.records.TheatrePlayRecord;
 import com.ays.theatre.crawler.theatreartbg.job.TheatreArtBgJob;
@@ -14,7 +14,9 @@ import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgPlayObjec
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtQueuePayload;
 import com.ays.theatre.crawler.theatreartbg.service.TheatreArtBgDayService;
 import com.ays.theatre.crawler.theatreartbg.service.TheatreArtBgPlayService;
-import com.ays.theatre.crawler.theatreartbg.worker.TheatreArtBgScraperWorkerPool;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import io.quarkus.runtime.QuarkusApplication;
 import io.quarkus.runtime.annotations.QuarkusMain;
 import jakarta.inject.Inject;
@@ -60,11 +62,23 @@ public class TheatreCrawlerApplication implements QuarkusApplication {
     @Inject
     LatchService latchService;
 
+    @Inject
+    ObjectMapper objectMapper;
+
+    @Inject
+    GoogleCalendarReSyncService googleCalendarReSyncService;
+
     @Override
-    public int run(String... args) {
+    public int run(String... args) throws JsonProcessingException {
 //        var url = "https://theatre.art.bg/разговори-с-мама_3550_8_20";
 //        var url = "https://theatre.art.bg/внимание!-любов!_7120_7_20";
 //        var url = "https://theatre.art.bg/хотел-между-тоя-и-оня-свят_6373_6_20";
+//        var dayUrl = "https://theatre.art.bg/%D1%82%D0%B5%D0%B0%D1%82%D1%80%D0%B8-%D1%81%D0%BE%D1%84%D0%B8%D1%8F-%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%B0______2024-01-16______20";
+//        latchService.init(Constants.THEATRE_ART_BG_DAY_LATCH, 1);
+//        theatreArtBgDayService.scrape(ImmutableTheatreArtBgCalendar.builder().month(1).year(2024).url(dayUrl).build(),dayUrl);
+//        latchService.await(Constants.THEATRE_ART_BG_DAY_LATCH);
+//
+//        var url = "https://theatre.art.bg/по-полека_5303_4_20";
 //        latchService.init(Constants.THEATRE_ART_BG_PLAY_LATCH, 1);
 //        theatreArtBgPlayService.scrape(ImmutableTheatreArtBgPlayObject.builder().build(), url);
         //
@@ -78,30 +92,41 @@ public class TheatreCrawlerApplication implements QuarkusApplication {
         //                                  .startTime(OffsetDateTime.now())
         //                                  .build());
 
-        var workerPool = new TheatreArtBgScraperWorkerPool(theatreArtBgDayService, theatreArtBgPlayService, queue,
-                                                           PARALLEL_WORKERS_SIZE);
-        workerPool.startWorkers();
-        theatreArtBgJob.run();
+//        var workerPool = new TheatreArtBgScraperWorkerPool(theatreArtBgDayService, theatreArtBgPlayService, queue,
+//                                                           PARALLEL_WORKERS_SIZE);
+//        workerPool.startWorkers();
+//        theatreArtBgJob.run();
 
-//        final var url = "https://theatre.art.bg/червено-и-черно_6771_3_20";
+        final var url = "https://theatre.art.bg/по-полека_5303_4_20";
 //        final var time = OffsetDateTime.parse("2023-12-30T21:00:00+02:00");
-//        theatreArtBgPlayService.scrape(ImmutableTheatreArtBgPlayObject.builder().build(), url);
-//        Optional<TheatrePlayRecord>  play = theatrePlayDao.getPlayFromUrlAndDate(url, time);
-//        Optional<TheatrePlayDetailsRecord> maybeDetails = theatrePlayDao.getTheatrePlayDetails("https://theatre.art.bg/червено-и-черно_6771_3_20");
-//        maybeDetails.ifPresent(r -> {
-//            var payload = ImmutableGoogleCalendarEventSchedulerPayload.builder()
-//                    .title(play.get().getTitle())
-//                    .theatre(play.get().getTheatre())
-//                    .startTime(play.get().getDate())
-//                    .url(r.getUrl())
-//                    .crew(r.getCrew())
-//                    .description(r.getDescription())
-//                    .rating(r.getRating())
-//                    .build();
-//            var eventDescription = GoogleCalendarDescriptionFormatter.getHtmlEventDescription(payload).replace("<br/>", "");
-//            googleCalendarService.createCalendarEvent(payload.getTitle(), payload.getTheatre(),
-//                    eventDescription, payload.getUrl(), OffsetDateTime.now());
-//        });
+        final var time = OffsetDateTime.parse("2024-01-16T21:00:00+02:00");
+        latchService.init(Constants.THEATRE_ART_BG_PLAY_LATCH, 1);
+        theatreArtBgPlayService.scrape(ImmutableTheatreArtBgPlayObject.builder().build(), url);
+        Optional<TheatrePlayRecord>  play = theatrePlayDao.getPlayFromUrlAndDate(url, time);
+        Optional<TheatrePlayDetailsRecord> maybeDetails = theatrePlayDao.getTheatrePlayDetails(url);
+
+        maybeDetails.ifPresent(playRecord -> {
+            var payload = getEventSchedulerPayload(playRecord, play.get());
+            var event = googleCalendarService.createCalendarEvent(payload);
+            var createdEvent = googleCalendarService.getEventById(event.getId());
+            googleCalendarReSyncService.reSyncEvent(event, Constants.THEATRE_ART_BG_ORIGIN);
+        });
         return 0;
+    }
+
+    private static ImmutableGoogleCalendarEventSchedulerPayload getEventSchedulerPayload(
+            TheatrePlayDetailsRecord playRecord,
+            TheatrePlayRecord play) {
+        return ImmutableGoogleCalendarEventSchedulerPayload.builder()
+                .title(play.getTitle())
+                .theatre(play.getTheatre())
+                .startTime(OffsetDateTime.now()) // play.get().getDate()
+                .url(playRecord.getUrl())
+                .theatreArtBgTicket(play.getTicketsUrl())
+                .crew(playRecord.getCrew())
+                .description(playRecord.getDescription())
+                .rating(playRecord.getRating())
+                .lastUpdated(play.getLastUpdated())
+                .build();
     }
 }

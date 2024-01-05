@@ -4,7 +4,7 @@ package com.ays.theatre.crawler.theatreartbg.worker;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.ays.theatre.crawler.global.dao.TheatrePlayDao;
+import com.ays.theatre.crawler.core.dao.TheatrePlayDao;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtQueuePayload;
 import com.ays.theatre.crawler.theatreartbg.service.TheatreArtBgDayService;
 import com.ays.theatre.crawler.theatreartbg.service.TheatreArtBgPlayService;

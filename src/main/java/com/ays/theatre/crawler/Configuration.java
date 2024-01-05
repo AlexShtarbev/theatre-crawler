@@ -4,19 +4,17 @@ import static io.agroal.api.configuration.AgroalConnectionPoolConfiguration.Conn
 import static java.time.Duration.ofSeconds;
 
 import java.sql.SQLException;
-import java.time.OffsetDateTime;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 
-import com.ays.theatre.crawler.calendar.ImmutableGoogleCalendarEventSchedulerPayload;
+import com.ays.theatre.crawler.calendar.model.ImmutableGoogleCalendarEventSchedulerPayload;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtQueuePayload;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
