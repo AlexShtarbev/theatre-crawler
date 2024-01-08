@@ -7,8 +7,11 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
+import com.ays.theatre.crawler.calendar.base.GoogleCalendarService;
+import com.ays.theatre.crawler.calendar.dao.GoogleCalendarDao;
 import com.ays.theatre.crawler.calendar.model.ImmutableGoogleCalendarEventSchedulerPayload;
 import com.ays.theatre.crawler.core.dao.TheatrePlayDao;
+import com.ays.theatre.crawler.core.model.ImmutableResycRecord;
 import com.ays.theatre.crawler.core.utils.DateUtils;
 import com.ays.theatre.crawler.tables.records.TheatrePlayDetailsRecord;
 import com.ays.theatre.crawler.tables.records.TheatrePlayRecord;
@@ -25,13 +28,19 @@ public class GoogleCalendarReSyncService {
     public static final String LAST_SYNC_TIME = "last_sync_time";
     public static final String THEATRE_ART_BG_TICKET_URL = "theatre_art_ticket";
 
-    private final TheatrePlayDao dao;
+    private final GoogleCalendarService googleCalendarService;
+    private final GoogleCalendarDao dao;
 
-    public GoogleCalendarReSyncService(TheatrePlayDao dao) {
+    public GoogleCalendarReSyncService(GoogleCalendarService googleCalendarService, GoogleCalendarDao dao) {
+        this.googleCalendarService = googleCalendarService;
         this.dao = dao;
     }
 
-    public void reSyncEvent(Event event, String origin) {
+    public void resync() {
+
+    }
+
+    public ImmutableResycRecord getRecordPair(Event event, String origin) {
         var eventPayload = eventToTheatreRecords(event);
         var playRecord = new TheatrePlayRecord()
                 .setUrl(eventPayload.getUrl())
@@ -49,6 +58,10 @@ public class GoogleCalendarReSyncService {
                 .setRating(eventPayload.getRating())
                 .setOrigin(origin);
 
+        return ImmutableResycRecord.builder()
+                .playRecord(playRecord)
+                .detailsRecord(detailsRecord)
+                .build();
     }
 
     public ImmutableGoogleCalendarEventSchedulerPayload eventToTheatreRecords(Event event) {

@@ -1,56 +1,39 @@
 package com.ays.theatre.crawler.calendar.base;
 
-import static com.ays.theatre.crawler.Configuration.GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR;
-
-import java.util.ArrayList;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import org.jboss.logging.Logger;
+
+import com.ays.theatre.crawler.calendar.dao.GoogleCalendarDao;
 import com.ays.theatre.crawler.calendar.model.ImmutableGoogleCalendarEventSchedulerPayload;
+import com.ays.theatre.crawler.core.service.Worker;
+import com.ays.theatre.crawler.theatreartbg.worker.TheatreArtBgScraperWorker;
+import com.google.api.services.calendar.model.Event;
 
-import jakarta.inject.Named;
-import jakarta.inject.Singleton;
+public class GoogleCalendarEventSchedulerWorker extends Worker<ImmutableGoogleCalendarEventSchedulerPayload> {
 
-@Singleton
-public class GoogleCalendarEventSchedulerWorker implements Runnable {
-
-    private static final int CONCURRENT_SCHEDULERS = 10;
-
+    private static final Logger LOG = Logger.getLogger(TheatreArtBgScraperWorker.class);
     private final GoogleCalendarService googleCalendarService;
-    private final ConcurrentLinkedQueue<ImmutableGoogleCalendarEventSchedulerPayload> queue;
-    private final Executor executor;
+    private final GoogleCalendarDao dao;
 
     public GoogleCalendarEventSchedulerWorker(
-            GoogleCalendarService googleCalendarService,
             ConcurrentLinkedQueue<ImmutableGoogleCalendarEventSchedulerPayload> queue,
-            @Named(GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR) Executor executor) {
+            AtomicInteger workerIdPool,
+            GoogleCalendarService googleCalendarService,
+            GoogleCalendarDao dao
+    ) {
+        super(queue, LOG, workerIdPool.getAndIncrement());
         this.googleCalendarService = googleCalendarService;
-        this.queue = queue;
-        this.executor = executor;
+        this.dao = dao;
     }
 
     @Override
-    public void run() {
-        while (true) {
-            var schedulers = new ArrayList<>();
-            while (!queue.isEmpty()) {
-                for (int i = 0; i < CONCURRENT_SCHEDULERS && !queue.isEmpty(); i++) {
-                    var payload = queue.poll();
-                    schedulers.add(CompletableFuture.runAsync(() -> {
-                        googleCalendarService.createCalendarEvent(payload);
-                    }, executor));
-                }
+    public void handlePayload(ImmutableGoogleCalendarEventSchedulerPayload payload) {
+        Event event = googleCalendarService.createCalendarEvent(payload);
+        LOG.info(String.format("[%d] Created event %s for %s at %s", getId(), event.getId(), payload.getUrl(),
+                               payload.getStartTime().toString()));
 
-                try {
-                    CompletableFuture.allOf(schedulers.toArray(new CompletableFuture[]{})).get();
-                } catch (InterruptedException | ExecutionException e) {
-                    throw new RuntimeException(e);
-                } finally {
-                    schedulers.clear();
-                }
-            }
-        }
+        dao.upsertEvent(payload.getUrl(), payload.getStartTime(), event.getId());
     }
 }

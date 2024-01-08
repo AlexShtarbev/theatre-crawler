@@ -5,11 +5,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.jboss.logging.Logger;
 
 import com.ays.theatre.crawler.calendar.model.ImmutableGoogleCalendarEventSchedulerPayload;
+import com.ays.theatre.crawler.core.utils.DateUtils;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -20,6 +22,7 @@ import com.google.api.services.calendar.Calendar;
 import com.google.api.services.calendar.CalendarScopes;
 import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.EventDateTime;
+import com.google.api.services.calendar.model.Events;
 
 import jakarta.inject.Singleton;
 
@@ -88,6 +91,39 @@ public class GoogleCalendarService {
             return result;
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    // https://developers.google.com/calendar/api/v3/reference/events/list
+    public ArrayList<Event> getAllEvents(OffsetDateTime offsetDateTime) {
+        var allEvents = new ArrayList<Event>();
+        String pageToken = null;
+        do {
+            Events events = list(pageToken, offsetDateTime);
+            allEvents.addAll(events.getItems());
+            pageToken = events.getNextPageToken();
+        } while (pageToken != null);
+
+        return allEvents;
+    }
+
+    private Events list(String pageToken, OffsetDateTime offsetDateTime) {
+        try {
+            return CALENDAR_SERVICE.events()
+                    .list(CALENDAR_ID)
+                    .setPageToken(pageToken)
+                    .setSingleEvents(true)
+                    // Order by the start date/time (ascending). This is only available when querying single events
+                    // (i.e. the parameter singleEvents is True)
+                    .setOrderBy("startTime")
+                    // Upper bound (exclusive) for an event's start time to filter by. Optional. The default is not to
+                    // filter by start time. Must be an RFC3339 timestamp with mandatory time zone offset, for example,
+                    // 2011-06-03T10:00:00-07:00, 2011-06-03T10:00:00Z. Milliseconds may be provided but are ignored.
+                    // If timeMin is set, timeMax must be greater than timeMin.
+                    .setTimeMax(new DateTime(offsetDateTime.toInstant().toEpochMilli()))
+                    .execute();
+        } catch (IOException ex) {
+            throw new RuntimeException(ex);
         }
     }
 

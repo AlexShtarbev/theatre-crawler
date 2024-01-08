@@ -52,7 +52,6 @@ public class DateUtils {
 
     public static OffsetDateTime toOffsetDateTime(EventDateTime eventDateTime) {
         var rfcDateTime = eventDateTime.getDateTime().toStringRfc3339();
-        var localDateTime = LocalDateTime.parse(rfcDateTime, RFC_3339_FORMATTER);
         return OffsetDateTime.of(LocalDateTime.parse(rfcDateTime, RFC_3339_FORMATTER), ZoneOffset.UTC);
     }
 

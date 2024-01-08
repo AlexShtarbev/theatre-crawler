@@ -146,10 +146,10 @@ public class TheatreArtBgPlayService implements TheatreService<ImmutableTheatreA
                 return null;
             }
             var dayAndMonth = ticketRow.querySelector("div.mesec_data").getChildNodes();
-            var day = dayAndMonth.get(0).getTextContent();
+            var day = Integer.parseInt(dayAndMonth.get(0).getTextContent());
             var month = dayAndMonth.get(1).getTextContent();
             var monthNumber = BULGARIAN_MONTH_TO_CALENDAR_MONTH_MAP.get(month.toLowerCase());
-            var dateTime = dayAndMonthYToDateMap.get(String.format("%s-%d", day, monthNumber));
+            var dateTime = dayAndMonthYToDateMap.get(String.format("%d-%d", day, monthNumber));
             if (dateTime == null) {
                 LOG.error(String.format("Failed to locate ticket url for %s and date %s %s", url, day, month));
                 return null;

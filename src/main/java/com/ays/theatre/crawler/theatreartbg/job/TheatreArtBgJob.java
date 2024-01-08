@@ -1,6 +1,8 @@
 
 package com.ays.theatre.crawler.theatreartbg.job;
 
+import com.ays.theatre.crawler.calendar.base.GoogleCalendarEventSchedulerWorkerPool;
+import com.ays.theatre.crawler.calendar.dao.GoogleCalendarDao;
 import com.ays.theatre.crawler.core.utils.Constants;
 import com.ays.theatre.crawler.core.dao.TheatrePlayDao;
 import com.ays.theatre.crawler.core.service.LatchService;
@@ -9,9 +11,12 @@ import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgPlayObjec
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtQueuePayload;
 import com.ays.theatre.crawler.theatreartbg.service.TheatreArtBgDayService;
 import com.ays.theatre.crawler.core.utils.PageUtils;
+import com.ays.theatre.crawler.theatreartbg.worker.TheatreArtBgScraperWorkerPool;
+
 import io.quarkus.logging.Log;
 import jakarta.inject.Singleton;
 import org.jboss.logging.Logger;
+import org.jsoup.nodes.Document;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -26,44 +31,67 @@ public class TheatreArtBgJob {
     private final TheatreArtBgDayService service;
     private final LatchService latchService;
     private final  TheatrePlayDao theatrePlayDao;
+    private final GoogleCalendarDao googleCalendarDao;
+    private final TheatreArtBgScraperWorkerPool theatreArtBgScraperWorkerPool;
+    private final GoogleCalendarEventSchedulerWorkerPool googleCalendarEventSchedulerWorkerPool;
 
     public TheatreArtBgJob(ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> queue,
                            TheatreArtBgDayService service,
                            LatchService latchService,
-                           TheatrePlayDao theatrePlayDao) {
+                           TheatrePlayDao theatrePlayDao,
+                           GoogleCalendarDao googleCalendarDao,
+                           TheatreArtBgScraperWorkerPool theatreArtBgScraperWorkerPool,
+                           GoogleCalendarEventSchedulerWorkerPool googleCalendarEventSchedulerWorkerPool) {
         this.queue = queue;
         this.service = service;
         this.latchService = latchService;
         this.theatrePlayDao = theatrePlayDao;
+        this.googleCalendarDao = googleCalendarDao;
+        this.theatreArtBgScraperWorkerPool = theatreArtBgScraperWorkerPool;
+        this.googleCalendarEventSchedulerWorkerPool = googleCalendarEventSchedulerWorkerPool;
     }
 
     public void run() {
         LOG.info("Starting Theatre.art.bg job");
         LOG.info("Navigating to " + Constants.THEATRE_ART_BG_BASE_URL);
         var doc = PageUtils.navigateWithRetry(Constants.THEATRE_ART_BG_BASE_URL);
+        var today = OffsetDateTime.now();
         try {
-            var calendar = service.getCalendar(doc);
-            var dayUrls = getDayUrls(calendar);
-            latchService.init(Constants.THEATRE_ART_BG_DAY_LATCH, dayUrls.size());
-            queue.addAll(dayUrls);
-            latchService.await(Constants.THEATRE_ART_BG_DAY_LATCH);
+            theatreArtBgScraperWorkerPool.startWorkers();
+            handleScrapingPlays(doc);
             Log.info("Done with scraping for day urls");
 
-            var allPlayRecords = theatrePlayDao.getTheatrePlaysByOriginAndDatePaged(Constants.THEATRE_ART_BG_ORIGIN,
-                    OffsetDateTime.now());
-
-            var playPayloads = allPlayRecords.stream().map(url ->
-                ImmutableTheatreArtQueuePayload.builder().url(url)
-                        .object(ImmutableTheatreArtBgPlayObject.builder().build())
-                        .build()
-            ).toList();
-            latchService.init(Constants.THEATRE_ART_BG_PLAY_LATCH, playPayloads.size());
-            queue.addAll(playPayloads);
-            latchService.await(Constants.THEATRE_ART_BG_PLAY_LATCH);
+            handleScrapingPlayDetails();
             Log.info("Done scraping play urls");
+            theatreArtBgScraperWorkerPool.stopWorkers();
+
+            var recordsFromTodayOnwards = googleCalendarDao.getRecords(Constants.THEATRE_ART_BG_ORIGIN, today);
+
         } catch (Exception ex) {
             LOG.error("Failed to get calendar", ex);
         }
+    }
+
+    private void handleScrapingPlays(Document doc) {
+        var calendar = service.getCalendar(doc);
+        var dayUrls = getDayUrls(calendar);
+        latchService.init(Constants.THEATRE_ART_BG_DAY_LATCH, dayUrls.size());
+        queue.addAll(dayUrls);
+        latchService.await(Constants.THEATRE_ART_BG_DAY_LATCH);
+    }
+
+    private void handleScrapingPlayDetails() {
+        var allPlayRecords = theatrePlayDao.getTheatrePlaysByOriginAndDatePaged(Constants.THEATRE_ART_BG_ORIGIN,
+                OffsetDateTime.now());
+
+        var playPayloads = allPlayRecords.stream().map(url ->
+            ImmutableTheatreArtQueuePayload.builder().url(url)
+                    .object(ImmutableTheatreArtBgPlayObject.builder().build())
+                    .build()
+        ).toList();
+        latchService.init(Constants.THEATRE_ART_BG_PLAY_LATCH, playPayloads.size());
+        queue.addAll(playPayloads);
+        latchService.await(Constants.THEATRE_ART_BG_PLAY_LATCH);
     }
 
     private List<ImmutableTheatreArtQueuePayload> getDayUrls(List<ImmutableTheatreArtBgCalendar> calendar) {

@@ -29,3 +29,11 @@ create table if not exists theatre.theatre_play_details (
      origin                       text NULL,
      PRIMARY KEY (url)
 );
+
+--changeset alex.shtarbev:6
+create table if not exists theatre.google_calendar_events (
+    url                          text NOT NULL,
+    date                         timestamptz NOT NULL,
+    eventId                      text NOT NULL,
+    PRIMARY KEY (url, date)
+);

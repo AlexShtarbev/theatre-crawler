@@ -37,6 +37,8 @@ public class Configuration {
     public static final String GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR = "GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR";
     public static final String JDBC_URL = "jdbc:postgresql://localhost:5432/root_db";
     public static final String UNIQUE_PLAY_URL_SET = "UNIQUE_PLAY_URL_SET";
+    public static final String THEATRE_ART_BG_WORKER_POOL_SIZE = "THEATRE_ART_BG_WORKER_POOL_SIZE";
+    public static final String GOOGLE_CALENDAR_WORKER_QUEUE_SIZE = "GOOGLE_CALENDAR_WORKER_QUEUE_SIZE";
 
     @Produces
     @Singleton
@@ -80,6 +82,20 @@ public class Configuration {
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         objectMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
         return objectMapper;
+    }
+
+    @Produces
+    @Singleton
+    @Named(THEATRE_ART_BG_WORKER_POOL_SIZE)
+    public Integer getTheatreArtBgPoolSize() {
+        return 20;
+    }
+
+    @Produces
+    @Singleton
+    @Named(GOOGLE_CALENDAR_WORKER_QUEUE_SIZE)
+    public Integer getGoogleCalendarWorkerQueueSize() {
+        return 20;
     }
 
     // https://stackoverflow.com/questions/68817155/how-to-define-a-data-source-programatically

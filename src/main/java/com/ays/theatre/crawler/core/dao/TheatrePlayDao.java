@@ -12,7 +12,7 @@ import org.jooq.DSLContext;
 
 import com.ays.theatre.crawler.Tables;
 import com.ays.theatre.crawler.core.model.ChangeAction;
-import com.ays.theatre.crawler.core.model.ImmutablePair;
+import com.ays.theatre.crawler.core.model.ImmutableResycRecord;
 import com.ays.theatre.crawler.core.model.ImmutableTheatrePlayObject;
 import com.ays.theatre.crawler.tables.records.TheatrePlayDetailsRecord;
 import com.ays.theatre.crawler.tables.records.TheatrePlayRecord;
@@ -50,16 +50,6 @@ public class TheatrePlayDao {
         })).toList();
     }
 
-    public void reSyncRecords(List<ImmutablePair<TheatrePlayRecord, TheatrePlayDetailsRecord>> recordPairs) {
-        dslContext.transaction(configuration -> {
-            var dsl = configuration.dsl();
-            recordPairs.forEach(pair -> {
-                insertPlay(dsl, pair.getFirst());
-                insertDetails(dsl, pair.getSecond());
-            });
-        });
-    }
-
     private static Optional<TheatrePlayRecord> fetchRecord(TheatrePlayRecord record, Configuration configuration) {
         return Optional.ofNullable(
                 configuration.dsl().selectFrom(Tables.THEATRE_PLAY)
@@ -85,7 +75,7 @@ public class TheatrePlayDao {
                 .set(record)
                 .execute();
     }
-    private int insertPlay(DSLContext dslContext, TheatrePlayRecord record) {
+    public int insertPlay(DSLContext dslContext, TheatrePlayRecord record) {
         return dslContext.insertInto(Tables.THEATRE_PLAY)
                 .set(record)
                 .onConflictDoNothing()

@@ -12,7 +12,6 @@ import org.immutables.value.Value;
 @Value.Immutable
 public interface GoogleCalendarEventSchedulerPayload {
     String getUrl();
-    Optional<String> getTheatreArtBgTicket();
     String getTitle();
     String getTheatre();
     String getCrew();
@@ -20,4 +19,9 @@ public interface GoogleCalendarEventSchedulerPayload {
     String getRating();
     OffsetDateTime getStartTime();
     OffsetDateTime getLastUpdated();
+
+    @Value.Default
+    default Optional<String> getTheatreArtBgTicket() {
+        return Optional.empty();
+    }
 }
