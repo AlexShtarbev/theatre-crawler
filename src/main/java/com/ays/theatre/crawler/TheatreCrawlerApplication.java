@@ -12,6 +12,7 @@ import com.ays.theatre.crawler.calendar.model.ImmutableGoogleCalendarEventSchedu
 import com.ays.theatre.crawler.calendar.resync.GoogleCalendarReSyncService;
 import com.ays.theatre.crawler.core.dao.TheatrePlayDao;
 import com.ays.theatre.crawler.core.service.LatchService;
+import com.ays.theatre.crawler.core.utils.Constants;
 import com.ays.theatre.crawler.tables.records.TheatrePlayDetailsRecord;
 import com.ays.theatre.crawler.tables.records.TheatrePlayRecord;
 import com.ays.theatre.crawler.theatreartbg.job.TheatreArtBgJob;
@@ -94,7 +95,10 @@ public class TheatreCrawlerApplication implements QuarkusApplication {
 //        var workerPool = new TheatreArtBgScraperWorkerPool(theatreArtBgDayService, theatreArtBgPlayService, queue,
 //                                                           PARALLEL_WORKERS_SIZE);
 //        workerPool.startWorkers();
+        var allEvents = googleCalendarService.getAllEvents(OffsetDateTime.now());
+        googleCalendarService.delete(allEvents);
         theatreArtBgJob.run();
+//        var eventsToSchedule = googleCalendarDao.getRecords(Constants.THEATRE_ART_BG_ORIGIN, OffsetDateTime.now());
 //        var events = googleCalendarDao.getRecords(Constants.THEATRE_ART_BG_ORIGIN);
 
 //        final var url = "https://theatre.art.bg/по-полека_5303_4_20";

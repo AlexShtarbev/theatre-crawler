@@ -43,6 +43,7 @@ public abstract class Worker<T> implements WorkerI {
     }
 
     public void interrupt() {
+        log.info(String.format("Interrupting %d", id));
         running.set(false);
         stopped.set(true);
     }

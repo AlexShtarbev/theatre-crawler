@@ -47,7 +47,7 @@ public class DateUtils {
     public static OffsetDateTime toOffsetDateTime(int year, int month, int day, int hour, int minute) {
         return OffsetDateTime.ofInstant(
                 LocalDateTime.of(year, month, day, hour, minute).toInstant(ZoneOffset.UTC),
-                ZoneId.of("UTC"));
+                ZoneId.of(Constants.TIMEZONE));
     }
 
     public static OffsetDateTime toOffsetDateTime(EventDateTime eventDateTime) {

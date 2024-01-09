@@ -7,7 +7,9 @@ import org.jboss.logging.Logger;
 
 import com.ays.theatre.crawler.calendar.dao.GoogleCalendarDao;
 import com.ays.theatre.crawler.calendar.model.ImmutableGoogleCalendarEventSchedulerPayload;
+import com.ays.theatre.crawler.core.service.LatchService;
 import com.ays.theatre.crawler.core.service.Worker;
+import com.ays.theatre.crawler.core.utils.Constants;
 import com.ays.theatre.crawler.theatreartbg.worker.TheatreArtBgScraperWorker;
 import com.google.api.services.calendar.model.Event;
 
@@ -16,16 +18,19 @@ public class GoogleCalendarEventSchedulerWorker extends Worker<ImmutableGoogleCa
     private static final Logger LOG = Logger.getLogger(TheatreArtBgScraperWorker.class);
     private final GoogleCalendarService googleCalendarService;
     private final GoogleCalendarDao dao;
+    private final LatchService latchService;
 
     public GoogleCalendarEventSchedulerWorker(
             ConcurrentLinkedQueue<ImmutableGoogleCalendarEventSchedulerPayload> queue,
             AtomicInteger workerIdPool,
             GoogleCalendarService googleCalendarService,
-            GoogleCalendarDao dao
+            GoogleCalendarDao dao,
+            LatchService latchService
     ) {
         super(queue, LOG, workerIdPool.getAndIncrement());
         this.googleCalendarService = googleCalendarService;
         this.dao = dao;
+        this.latchService = latchService;
     }
 
     @Override
@@ -34,6 +39,11 @@ public class GoogleCalendarEventSchedulerWorker extends Worker<ImmutableGoogleCa
         LOG.info(String.format("[%d] Created event %s for %s at %s", getId(), event.getId(), payload.getUrl(),
                                payload.getStartTime().toString()));
 
-        dao.upsertEvent(payload.getUrl(), payload.getStartTime(), event.getId());
+        try {
+            dao.upsertEvent(payload.getUrl(), payload.getStartTime(), event.getId());
+        } catch (Exception ex) {
+            LOG.error(String.format("Failed to upsert event for %s at %s", payload.getUrl(), payload.getStartTime()));
+        }
+        latchService.countDown(Constants.GOOGLE_CALENDAR_LATCH);
     }
 }

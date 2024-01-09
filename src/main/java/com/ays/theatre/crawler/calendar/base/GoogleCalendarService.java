@@ -1,17 +1,24 @@
 package com.ays.theatre.crawler.calendar.base;
 
 import java.io.FileNotFoundException;
+import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 import org.jboss.logging.Logger;
 
 import com.ays.theatre.crawler.calendar.model.ImmutableGoogleCalendarEventSchedulerPayload;
-import com.ays.theatre.crawler.core.utils.DateUtils;
+import com.ays.theatre.crawler.core.utils.Constants;
+import com.github.rholder.retry.RetryException;
+import com.github.rholder.retry.Retryer;
+import com.github.rholder.retry.RetryerBuilder;
+import com.github.rholder.retry.StopStrategies;
+import com.github.rholder.retry.WaitStrategies;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -30,6 +37,13 @@ import jakarta.inject.Singleton;
 @Singleton
 public class GoogleCalendarService {
     private static final Logger LOG = Logger.getLogger(GoogleCalendarService.class);
+
+    private static final Retryer<Event> GOOGLE_CALENDAR_RETRYER = RetryerBuilder.<Event>newBuilder()
+            .retryIfExceptionOfType(IOError.class)
+            .retryIfException()
+            .withStopStrategy(StopStrategies.neverStop())
+            .withWaitStrategy(WaitStrategies.exponentialWait())
+            .build();
 
     private static final String CALENDAR_ID =
             "ffa06350dba9afc747046f35509b4c36c31d7b2c96db88741340ec91aa28692a@group.calendar.google.com";
@@ -54,23 +68,31 @@ public class GoogleCalendarService {
     // https://developers.google.com/calendar/api/v3/reference/events/insert
     public Event createCalendarEvent(ImmutableGoogleCalendarEventSchedulerPayload payload) {
         var eventDescription = GoogleCalendarDescriptionFormatter.getHtmlEventDescription(payload);
-        var event = new Event()
+        var event = getEvent(payload, eventDescription);
+
+        try {
+            LOG.info(String.format("Creating calendar event for %s at %s", payload.getUrl(), payload.getStartTime()));
+            var googleCalendarEvent = createEvent(event);
+            LOG.info(String.format("Created calendar event for %s at %s", payload.getUrl(), payload.getStartTime()));
+            return googleCalendarEvent;
+        } catch (ExecutionException | RetryException ex) {
+            throw new RuntimeException(String.format("[%s] Failed to create Google Calendar event for %s-%s",
+                                                     payload.getUrl(), payload.getTitle(), payload.getTheatre()), ex);
+        }
+    }
+
+    private Event createEvent(Event event) throws ExecutionException, RetryException {
+        return GOOGLE_CALENDAR_RETRYER.call(
+                () -> CALENDAR_SERVICE.events().insert(CALENDAR_ID, event).execute());
+    }
+
+    private Event getEvent(ImmutableGoogleCalendarEventSchedulerPayload payload, String eventDescription) {
+        return new Event()
                 .setSummary(payload.getTitle())
                 .setLocation(payload.getTheatre())
                 .setDescription(eventDescription)
                 .setStart(getEventDateTime(payload.getStartTime()))
                 .setEnd(getEventDateTime(payload.getStartTime().plusMinutes(10)));
-
-
-        // FIXME
-        getEventById("afmf28kv96g24siu0pqasc99m0");
-
-        try {
-            return CALENDAR_SERVICE.events().insert(CALENDAR_ID, event).execute();
-        } catch (IOException ex) {
-            throw new RuntimeException(String.format("[%s] Failed to create Google Calendar event for %s-%s",
-                                                     payload.getUrl(), payload.getTitle(), payload.getTheatre()), ex);
-        }
     }
 
     public Event getEventById(String eventId) {
@@ -120,17 +142,31 @@ public class GoogleCalendarService {
                     // filter by start time. Must be an RFC3339 timestamp with mandatory time zone offset, for example,
                     // 2011-06-03T10:00:00-07:00, 2011-06-03T10:00:00Z. Milliseconds may be provided but are ignored.
                     // If timeMin is set, timeMax must be greater than timeMin.
-                    .setTimeMax(new DateTime(offsetDateTime.toInstant().toEpochMilli()))
+                    .setTimeMin(new DateTime(offsetDateTime.toInstant().toEpochMilli()))
                     .execute();
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
     }
 
-    private static EventDateTime getEventDateTime(OffsetDateTime dateTime) {
+    public void delete(List<Event> events) {
+        events.forEach(event -> {
+            try {
+                GOOGLE_CALENDAR_RETRYER.call(() -> {
+                    CALENDAR_SERVICE.events().delete(CALENDAR_ID, event.getId()).execute();
+                    return event;
+                });
+            } catch (ExecutionException | RetryException ex) {
+                LOG.error("Failed to delete event " + event.getId(), ex);
+            }
+        });
+
+    }
+
+    private EventDateTime getEventDateTime(OffsetDateTime dateTime) {
         return new EventDateTime()
                 .setDateTime(new DateTime(dateTime.toInstant().toEpochMilli()))
-                .setTimeZone(dateTime.toZonedDateTime().getZone().toString());
+                .setTimeZone(Constants.TIMEZONE);
     }
 
     private static Calendar getCalendar() {

@@ -38,7 +38,7 @@ public class GoogleCalendarDao {
                 .setDate(time)
                 .setEventid(eventId);
 
-        return dslContext.insertInto(Tables.THEATRE_PLAY)
+        return dslContext.insertInto(Tables.GOOGLE_CALENDAR_EVENTS)
                 .set(record)
                 .onDuplicateKeyUpdate()
                 .set(record)
