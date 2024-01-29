@@ -1,17 +1,17 @@
-version: '2.3'
+  version: '2.3'
 
-services:
-  # A PostgreSQL database to be used by vpshere-provider
-  postgres:
-    image: bitnami/postgresql:16.1.0-debian-11-r15
-    ports:
-      - "${EXPOSED_PORT}:5432"
-    environment:
-      POSTGRES_DB: root_db
-      POSTGRES_PASSWORD: password
-      POSTGRES_USER: root
-    healthcheck:
-      interval: 10s
-      retries: 10
-      test: "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""
-      timeout: 2s
+  services:
+    # A PostgreSQL database to be used by vpshere-provider
+    postgres:
+      image: bitnami/postgresql:16.1.0-debian-11-r15
+      ports:
+        - "${EXPOSED_PORT}:5432"
+      environment:
+        POSTGRES_DB: root_db
+        POSTGRES_PASSWORD: password
+        POSTGRES_USER: root
+      healthcheck:
+        interval: 10s
+        retries: 10
+        test: "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""
+        timeout: 2s

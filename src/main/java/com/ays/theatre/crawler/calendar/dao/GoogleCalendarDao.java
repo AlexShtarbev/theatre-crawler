@@ -51,11 +51,18 @@ public class GoogleCalendarDao {
         var allFields = ArrayUtils.addAll(playFields, detailsFields);
         return dslContext.select(allFields)
                 .from(Tables.THEATRE_PLAY)
+
                 .leftJoin(Tables.THEATRE_PLAY_DETAILS)
                 .on(Tables.THEATRE_PLAY.URL.eq(Tables.THEATRE_PLAY_DETAILS.URL))
                 .and(Tables.THEATRE_PLAY.ORIGIN.eq(Tables.THEATRE_PLAY.ORIGIN))
+
+                .leftJoin(Tables.GOOGLE_CALENDAR_EVENTS)
+                .on(Tables.GOOGLE_CALENDAR_EVENTS.URL.eq(Tables.THEATRE_PLAY.URL))
+                .and(Tables.GOOGLE_CALENDAR_EVENTS.URL.eq(Tables.THEATRE_PLAY.URL))
+
                 .where(Tables.THEATRE_PLAY.ORIGIN.eq(origin))
                 .and(Tables.THEATRE_PLAY.DATE.greaterOrEqual(after))
+                .and(Tables.GOOGLE_CALENDAR_EVENTS.EVENTID.isNull())
                 .orderBy(Tables.THEATRE_PLAY.URL, Tables.THEATRE_PLAY.DATE)
                 .fetch(mapper);
     }
