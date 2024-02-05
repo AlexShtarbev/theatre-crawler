@@ -5,11 +5,16 @@ import jakarta.inject.Singleton;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 @Singleton
 public class LatchService {
 
     private final Map<String, CountDownLatch> latches = new ConcurrentHashMap<>();
+
+    public void clear() {
+        latches.clear();
+    }
 
     public void init(String name, int size) {
         var latch = latches.get(name);
@@ -27,7 +32,7 @@ public class LatchService {
     public void await(String name) {
         try {
             var latch = getLatch(name);
-            latch.await();
+            latch.await(180_000, TimeUnit.MILLISECONDS);
         } catch (InterruptedException ex) {
             throw new RuntimeException(ex);
         }

@@ -68,7 +68,7 @@ public class GoogleCalendarDao {
     }
 
 
-    public void reSyncRecords(List<ImmutableResycRecord> recordPairs) {
+    public void insertRecords(List<ImmutableResycRecord> recordPairs) {
         dslContext.transaction(configuration -> {
             var dsl = configuration.dsl();
             recordPairs.forEach(pair -> {

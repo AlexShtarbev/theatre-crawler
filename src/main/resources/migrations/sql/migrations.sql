@@ -37,3 +37,8 @@ create table if not exists theatre.google_calendar_events (
     eventId                      text NOT NULL,
     PRIMARY KEY (url, date)
 );
+
+--changeset alex.shtarbev:7
+ALTER TABLE theatre.google_calendar_events
+ADD FOREIGN KEY (url, date) REFERENCES theatre.theatre_play(url, date)
+ON DELETE CASCADE ON UPDATE CASCADE;

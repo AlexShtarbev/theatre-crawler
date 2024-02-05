@@ -26,8 +26,8 @@ import io.quarkus.logging.Log;
 import jakarta.inject.Singleton;
 
 @Singleton
-public class TheatreArtBgJob {
-    private static final Logger LOG = Logger.getLogger(TheatreArtBgJob.class);
+public class TheatreArtBgRunner implements Runnable {
+    private static final Logger LOG = Logger.getLogger(TheatreArtBgRunner.class);
 
     private final ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> scraperQueue;
     private final  ConcurrentLinkedQueue<ImmutableGoogleCalendarEventSchedulerPayload> calendarQueue;
@@ -38,14 +38,14 @@ public class TheatreArtBgJob {
     private final TheatreArtBgScraperWorkerPool theatreArtBgScraperWorkerPool;
     private final GoogleCalendarEventSchedulerWorkerPool googleCalendarEventSchedulerWorkerPool;
 
-    public TheatreArtBgJob(ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> scraperQueue,
-                           ConcurrentLinkedQueue<ImmutableGoogleCalendarEventSchedulerPayload> calendarQueue,
-                           TheatreArtBgDayService service,
-                           LatchService latchService,
-                           TheatrePlayDao theatrePlayDao,
-                           GoogleCalendarDao googleCalendarDao,
-                           TheatreArtBgScraperWorkerPool theatreArtBgScraperWorkerPool,
-                           GoogleCalendarEventSchedulerWorkerPool googleCalendarEventSchedulerWorkerPool) {
+    public TheatreArtBgRunner(ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> scraperQueue,
+                              ConcurrentLinkedQueue<ImmutableGoogleCalendarEventSchedulerPayload> calendarQueue,
+                              TheatreArtBgDayService service,
+                              LatchService latchService,
+                              TheatrePlayDao theatrePlayDao,
+                              GoogleCalendarDao googleCalendarDao,
+                              TheatreArtBgScraperWorkerPool theatreArtBgScraperWorkerPool,
+                              GoogleCalendarEventSchedulerWorkerPool googleCalendarEventSchedulerWorkerPool) {
         this.scraperQueue = scraperQueue;
         this.calendarQueue = calendarQueue;
         this.service = service;
@@ -67,6 +67,8 @@ public class TheatreArtBgJob {
             runCreatingGoogleCalendarEvents(today);
         } catch (Exception ex) {
             LOG.error("Failed to get calendar", ex);
+        } finally {
+            latchService.clear();
         }
     }
 
@@ -103,8 +105,8 @@ public class TheatreArtBgJob {
     }
 
     private void handleScrapingPlayDetails() {
-        var allPlayRecords = theatrePlayDao.getTheatrePlaysByOriginAndDatePaged(Constants.THEATRE_ART_BG_ORIGIN,
-                OffsetDateTime.now());
+        var allPlayRecords = theatrePlayDao.getTheatrePlaysByOrigin(Constants.THEATRE_ART_BG_ORIGIN,
+                                                                    OffsetDateTime.now());
 
         var playPayloads = allPlayRecords.stream().map(url ->
             ImmutableTheatreArtQueuePayload.builder().url(url)

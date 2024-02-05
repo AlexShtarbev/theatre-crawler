@@ -35,7 +35,7 @@ public class TheatreArtBgPlayService implements TheatreService<ImmutableTheatreA
     @Override
     public void scrape(ImmutableTheatreArtBgPlayObject obj,  String url) {
         try (WebClient webClient = new WebClient()) {
-            LOG.info(String.format("[%s] Will try to get a connection to: ", url));
+            LOG.info(String.format("[%s] Will try to get a connection", url));
             configureWebClient(webClient);
             HtmlPage page = PageUtils.navigateWithRetry(webClient, url);
             LOG.info(String.format("[%s] Will get play info ", url));
@@ -167,6 +167,8 @@ public class TheatreArtBgPlayService implements TheatreService<ImmutableTheatreA
         webClient.getOptions().setThrowExceptionOnScriptError(false);
         webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
         webClient.getOptions().setJavaScriptEnabled(false);
+        webClient.getOptions().setCssEnabled(false);
+        webClient.getOptions().setDownloadImages(false);
     }
 
     private static TheatrePlayDetailsRecord getPlayRecord(String url, String ratingAndVotes, String crewHtml,

@@ -31,7 +31,7 @@ public class GoogleCalendarScheduledEventMapper
                 .title(playRecord.getTitle())
                 .theatre(playRecord.getTheatre())
                 .startTime(playRecord.getDate())
-                .url(playDetailsRecord.getUrl())
+                .url(playRecord.getUrl())
                 .theatreArtBgTicket(Optional.ofNullable(playRecord.getTicketsUrl()))
                 .crew(playDetailsRecord.getCrew())
                 .description(playDetailsRecord.getDescription())

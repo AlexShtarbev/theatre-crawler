@@ -12,7 +12,6 @@ import org.jooq.DSLContext;
 
 import com.ays.theatre.crawler.Tables;
 import com.ays.theatre.crawler.core.model.ChangeAction;
-import com.ays.theatre.crawler.core.model.ImmutableResycRecord;
 import com.ays.theatre.crawler.core.model.ImmutableTheatrePlayObject;
 import com.ays.theatre.crawler.tables.records.TheatrePlayDetailsRecord;
 import com.ays.theatre.crawler.tables.records.TheatrePlayRecord;
@@ -103,7 +102,7 @@ public class TheatrePlayDao {
                 .fetchOneInto(TheatrePlayDetailsRecord.class));
     }
 
-    public List<String> getTheatrePlaysByOriginAndDatePaged(String origin, OffsetDateTime dateTime) {
+    public List<String> getTheatrePlaysByOrigin(String origin, OffsetDateTime dateTime) {
         return dslContext.selectDistinct(Tables.THEATRE_PLAY.URL)
                 .from(Tables.THEATRE_PLAY)
                 .where(Tables.THEATRE_PLAY.ORIGIN.eq(origin))

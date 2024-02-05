@@ -47,6 +47,11 @@ dependencies {
     // https://mvnrepository.com/artifact/com.google.apis/google-api-services-calendar
     implementation 'com.google.apis:google-api-services-calendar:v3-rev20220715-2.0.0'
 
+    implementation "io.quarkus:quarkus-resteasy-reactive-jackson"
+    implementation "io.quarkus:quarkus-resteasy-reactive-jsonb"
+    // https://quarkus.io/guides/scheduler
+    implementation "io.quarkus:quarkus-scheduler"
+
     testImplementation 'io.quarkus:quarkus-junit5'
 
     liquibaseRuntime 'org.liquibase:liquibase-core:4.16.1'
