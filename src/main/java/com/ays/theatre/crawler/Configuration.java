@@ -4,13 +4,21 @@ import static io.agroal.api.configuration.AgroalConnectionPoolConfiguration.Conn
 import static java.time.Duration.ofSeconds;
 
 import java.sql.SQLException;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 
+import com.ays.theatre.crawler.calendar.model.ImmutableGoogleCalendarEventSchedulerPayload;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtQueuePayload;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 import io.agroal.api.AgroalDataSource;
 import io.agroal.api.configuration.AgroalDataSourceConfiguration;
@@ -26,12 +34,37 @@ import jakarta.inject.Singleton;
 public class Configuration {
 
     public static final String CUSTOM_DSL = "CUSTOM_DSL";
-    public static final String JDBC_URL = "jdbc:postgresql://localhost:5432/postgres";
+    public static final String GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR = "GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR";
+    public static final String JDBC_URL = "jdbc:postgresql://localhost:5432/root_db";
+    public static final String UNIQUE_PLAY_URL_SET = "UNIQUE_PLAY_URL_SET";
+    public static final String THEATRE_ART_BG_WORKER_POOL_SIZE = "THEATRE_ART_BG_WORKER_POOL_SIZE";
+    public static final String GOOGLE_CALENDAR_WORKER_QUEUE_SIZE = "GOOGLE_CALENDAR_WORKER_QUEUE_SIZE";
 
     @Produces
     @Singleton
-    ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> getTheatreArtBgQueue() {
+    public ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> getTheatreArtBgQueue() {
         return new ConcurrentLinkedQueue<>();
+    }
+
+    @Produces
+    @Singleton
+    public ConcurrentLinkedQueue<ImmutableGoogleCalendarEventSchedulerPayload>
+    getGoogleCalendarEventSchedulerPayloadQueue() {
+        return new ConcurrentLinkedQueue<>();
+    }
+
+    @Produces
+    @Singleton
+    @Named(UNIQUE_PLAY_URL_SET)
+    public Set<String> getPlaysToVisitSet() {
+        return ConcurrentHashMap.newKeySet();
+    }
+
+    @Produces
+    @Singleton
+    @Named(GOOGLE_CALENDAR_EVENT_SCHEDULER_EXECUTOR)
+    public Executor getGoogleCalendarEventSchedulerPayload() {
+        return Executors.newVirtualThreadPerTaskExecutor();
     }
 
     @Produces
@@ -39,6 +72,30 @@ public class Configuration {
     @Named(CUSTOM_DSL)
     public DSLContext getHikariDslContext() throws SQLException {
         return DSL.using(getDatasource(), SQLDialect.POSTGRES);
+    }
+
+    @Produces
+    @Singleton
+    public ObjectMapper getObjectMapper() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.findAndRegisterModules();
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        objectMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        return objectMapper;
+    }
+
+    @Produces
+    @Singleton
+    @Named(THEATRE_ART_BG_WORKER_POOL_SIZE)
+    public Integer getTheatreArtBgPoolSize() {
+        return 20;
+    }
+
+    @Produces
+    @Singleton
+    @Named(GOOGLE_CALENDAR_WORKER_QUEUE_SIZE)
+    public Integer getGoogleCalendarWorkerQueueSize() {
+        return 20;
     }
 
     // https://stackoverflow.com/questions/68817155/how-to-define-a-data-source-programatically
@@ -57,8 +114,9 @@ public class Configuration {
                         .reapTimeout(ofSeconds(500))
                         .connectionFactoryConfiguration(cf -> cf
                                 .jdbcUrl(JDBC_URL)
-                                .autoCommit( true )
-                                .principal(new NamePrincipal("postgres"))
+                                .jdbcProperty("schema", "theatre")
+                                .autoCommit(true)
+                                .principal(new NamePrincipal("root"))
                                 .credential(new SimplePassword("password"))
                         )
                 );

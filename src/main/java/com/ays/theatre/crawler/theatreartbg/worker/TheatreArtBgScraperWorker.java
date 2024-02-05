@@ -1,86 +1,66 @@
 
 package com.ays.theatre.crawler.theatreartbg.worker;
 
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.commons.lang3.time.StopWatch;
 import org.jboss.logging.Logger;
 
-import com.ays.theatre.crawler.global.dao.TheatrePlayDao;
-import com.ays.theatre.crawler.tables.records.TheatrePlayRecord;
+import com.ays.theatre.crawler.core.service.TheatreService;
+import com.ays.theatre.crawler.core.service.Worker;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgCalendar;
-import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgExtractedDayMetadata;
+import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgPlayObject;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtQueuePayload;
-import com.ays.theatre.crawler.theatreartbg.service.TheatreArtBgScraperService;
-import com.microsoft.playwright.Browser;
-import com.microsoft.playwright.Playwright;
+import com.ays.theatre.crawler.theatreartbg.service.TheatreArtBgDayService;
+import com.ays.theatre.crawler.theatreartbg.service.TheatreArtBgPlayService;
 
 // https://playwright.dev/java/docs/multithreading
-public class TheatreArtBgScraperWorker implements Runnable {
+public class TheatreArtBgScraperWorker extends Worker<ImmutableTheatreArtQueuePayload> {
 
     private static final Logger LOG = Logger.getLogger(TheatreArtBgScraperWorker.class);
-    public static final int PAGE_DEFAULT_TIMEOUT = 1200000;
+    private final TheatreArtBgDayService theatreArtBgDayService;
+    private final TheatreArtBgPlayService theatreArtBgPlayService;
 
-    private final TheatreArtBgScraperService theatreArtBgScraperService;
-    private final ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> queue;
-    private final TheatrePlayDao theatrePlayDao;
-    private final Browser browser;
-
-    public TheatreArtBgScraperWorker(TheatreArtBgScraperService theatreArtBgScraperService,
-                                     ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> queue,
-                                     TheatrePlayDao theatrePlayDao) {
-        this.theatreArtBgScraperService = theatreArtBgScraperService;
-        this.browser = Playwright.create().webkit().launch();
-        this.theatrePlayDao = theatrePlayDao;
-        this.queue = queue;
+    public TheatreArtBgScraperWorker(ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> queue,
+                                     TheatreArtBgDayService theatreArtBgDayService,
+                                     TheatreArtBgPlayService theatreArtBgPlayService,
+                                     AtomicInteger workerIdPool) {
+        super(queue, LOG, workerIdPool.getAndIncrement());
+        this.theatreArtBgDayService = theatreArtBgDayService;
+        this.theatreArtBgPlayService = theatreArtBgPlayService;
     }
 
     @Override
-    public void run() {
-        LOG.info("Starting worker");
-        while(true) {
-            ImmutableTheatreArtQueuePayload payload;
-            do {
-                payload = queue.poll();
-            } while (payload == null);
-
-            LOG.info(String.format("==> Visiting URL: %s", payload.getUrl()));
-            try (var page = browser.newPage()) {
-                page.setDefaultTimeout(PAGE_DEFAULT_TIMEOUT);
-                page.navigate(payload.getUrl());
-                var maybeMetadata = theatreArtBgScraperService.extractPlayData(page);
-                if (maybeMetadata.isEmpty()) {
-                    continue;
-                }
-
-                var metadata = maybeMetadata.get();
-                var calendar = payload.getCalendar();
-                var playMetadataRecords = getRecords(metadata, calendar);
-                theatrePlayDao.merge(playMetadataRecords);
-                LOG.info(String.format("Finished scraping: %s", payload.getUrl()));
-            } catch (Exception ex) {
-                LOG.error(ex);
+    public void handlePayload(ImmutableTheatreArtQueuePayload payload) {
+        try {
+            if (payload.getObject() instanceof ImmutableTheatreArtBgCalendar) { // FIXME - custom object
+                LOG.info(String.format("[%d] ==> Visiting Day URL: %s", getId(), payload.getUrl()));
+                scrapeAndTime(theatreArtBgDayService, (ImmutableTheatreArtBgCalendar) payload.getObject(),
+                        payload.getUrl());
+            } else if (payload.getObject() instanceof ImmutableTheatreArtBgPlayObject) {
+                LOG.info(String.format("[%d] ==> Visiting PLAY URL: %s", getId(), payload.getUrl()));
+                scrapeAndTime(theatreArtBgPlayService, (ImmutableTheatreArtBgPlayObject) payload.getObject(),
+                        payload.getUrl());
+            } else {
+                LOG.error("No matching service for " + payload.getUrl());
             }
+
+        } catch (Exception ex) {
+            LOG.error(ex);
         }
     }
 
-    private List<TheatrePlayRecord> getRecords(
-            ImmutableTheatreArtBgExtractedDayMetadata metadata, ImmutableTheatreArtBgCalendar calendar) {
-        return metadata.getPlaysMetadata()
-                .stream()
-                .map(play -> {
-                    var localDateTime = LocalDateTime.of(calendar.getYear(), calendar.getMonth(),
-                                                 metadata.getDay(), play.getHour(), play.getMinute());
-
-                    return new TheatrePlayRecord()
-                            .setTitle(play.getTitle())
-                            .setUrl(play.getUrl())
-                            .setTheatre(play.getTheatre())
-                            .setDate(OffsetDateTime.of(localDateTime, ZoneOffset.UTC))
-                            .setLastUpdated(OffsetDateTime.now(ZoneOffset.UTC));
-                }).toList();
+    private <T> void scrapeAndTime(TheatreService<T> service, T obj, String url) {
+        var stopWatch = new StopWatch();
+        stopWatch.start();
+        try {
+            service.scrape(obj, url);
+        } catch (Exception ex) {
+            LOG.error(ex);
+        } finally {
+            stopWatch.stop();
+            LOG.info(String.format("[%d] Scraping %s took %dms", getId(), url, stopWatch.getTime()));
+        }
     }
 }

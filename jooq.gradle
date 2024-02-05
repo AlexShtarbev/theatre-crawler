@@ -7,8 +7,8 @@ jooq {
             generationTool {
                 jdbc {
                     driver = 'org.postgresql.Driver'
-                    url = 'jdbc:postgresql://localhost:5434/postgres?ApplicationName=jooq.gradle'
-                    user = 'postgres'
+                    url = 'jdbc:postgresql://localhost:5434/root_db?ApplicationName=jooq.gradle'
+                    user = 'root'
                     password = 'password'
                     properties {
                         property {
@@ -21,7 +21,7 @@ jooq {
                     name = 'org.jooq.codegen.DefaultGenerator'
                     database {
                         name = 'org.jooq.meta.postgres.PostgresDatabase'
-                        inputSchema = 'public'
+                        inputSchema = 'theatre'
                         forcedTypes {
                             forcedType {
                                 name = 'varchar'
@@ -47,7 +47,6 @@ jooq {
                         packageName = 'com.ays.theatre.crawler'
                         directory = "${buildDir}/generated/sources/postgresql/main"
                     }
-                    strategy.name = 'org.jooq.codegen.DefaultGeneratorStrategy'
                 }
             }
         }

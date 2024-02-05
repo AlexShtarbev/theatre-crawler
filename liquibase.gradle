@@ -2,8 +2,8 @@ liquibase {
     activities {
         main {
             changelogFile "src/main/resources/migrations/sql/migrations.sql"
-            url 'jdbc:postgresql://localhost:5434/postgres?ApplicationName=liquibase.gradle'
-            username 'postgres'
+            url 'jdbc:postgresql://localhost:5434/root_db?ApplicationName=liquibase.gradle'
+            username 'root'
             password 'password'
         }
     }
