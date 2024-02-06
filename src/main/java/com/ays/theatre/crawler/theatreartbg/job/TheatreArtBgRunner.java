@@ -15,6 +15,7 @@ import com.ays.theatre.crawler.calendar.model.ImmutableGoogleCalendarEventSchedu
 import com.ays.theatre.crawler.core.dao.TheatrePlayDao;
 import com.ays.theatre.crawler.core.service.LatchService;
 import com.ays.theatre.crawler.core.utils.Constants;
+import com.ays.theatre.crawler.core.utils.Origin;
 import com.ays.theatre.crawler.core.utils.PageUtils;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgCalendar;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgPlayObject;
@@ -105,7 +106,7 @@ public class TheatreArtBgRunner implements Runnable {
     }
 
     private void handleScrapingPlayDetails() {
-        var allPlayRecords = theatrePlayDao.getTheatrePlaysByOrigin(Constants.THEATRE_ART_BG_ORIGIN,
+        var allPlayRecords = theatrePlayDao.getTheatrePlaysByOrigin(Origin.THEATRE_ART_BG,
                                                                     OffsetDateTime.now());
 
         var playPayloads = allPlayRecords.stream().map(url ->
@@ -120,7 +121,7 @@ public class TheatreArtBgRunner implements Runnable {
 
     private void runCreatingGoogleCalendarEvents(OffsetDateTime today) {
         googleCalendarEventSchedulerWorkerPool.startWorkers();
-        var recordsFromTodayOnwards = googleCalendarDao.getRecords(Constants.THEATRE_ART_BG_ORIGIN, today);
+        var recordsFromTodayOnwards = googleCalendarDao.getRecords(Origin.THEATRE_ART_BG, today);
         latchService.init(Constants.GOOGLE_CALENDAR_LATCH, recordsFromTodayOnwards.size());
         calendarQueue.addAll(recordsFromTodayOnwards);
         latchService.await(Constants.GOOGLE_CALENDAR_LATCH);

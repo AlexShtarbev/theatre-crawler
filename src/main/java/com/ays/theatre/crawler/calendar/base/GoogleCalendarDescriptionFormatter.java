@@ -15,6 +15,8 @@ public class GoogleCalendarDescriptionFormatter {
             """;
 
     private static final String HTML_TEMPLATE = """
+            Последно обвновено: <b class="last_sync_time">%s</b>
+            <br/>
             <a class="play_link" href="%s">theatre.art.bg</a>
             <br/>
             %s
@@ -23,8 +25,6 @@ public class GoogleCalendarDescriptionFormatter {
             <b class="title">%s</b><b class="rating">%s</b>
             <br/>
             <div class="description">%s</div>
-            <br/>
-            Последно обвновено: <b class="last_sync_time">%s</b>
             """;
 
     public static String getHtmlEventDescription(ImmutableGoogleCalendarEventSchedulerPayload payload) {
@@ -33,12 +33,12 @@ public class GoogleCalendarDescriptionFormatter {
                 .orElse("");
 
         return String.format(HTML_TEMPLATE,
+                             payload.getLastUpdated().toString(),
                              payload.getUrl(),
                              theatreArtBgTicketLink,
                              payload.getCrew(),
                              payload.getTitle(), payload.getRating(),
-                             payload.getDescription(),
-                             payload.getLastUpdated().toString());
+                             payload.getDescription());
     }
 
 }
