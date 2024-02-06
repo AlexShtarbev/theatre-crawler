@@ -4,6 +4,7 @@ import com.ays.theatre.crawler.core.dao.TheatrePlayDao;
 import com.ays.theatre.crawler.core.model.ImmutableTheatrePlayObject;
 import com.ays.theatre.crawler.core.service.LatchService;
 import com.ays.theatre.crawler.core.service.TheatreService;
+import com.ays.theatre.crawler.core.utils.Origin;
 import com.ays.theatre.crawler.tables.records.TheatrePlayRecord;
 import com.ays.theatre.crawler.core.utils.Constants;
 import com.ays.theatre.crawler.theatreartbg.model.*;
@@ -158,7 +159,7 @@ public class TheatreArtBgDayService implements TheatreService<ImmutableTheatreAr
                 .setTitle(play.getTitle())
                 .setUrl(play.getUrl())
                 .setTheatre(play.getTheatre())
-                .setOrigin(Constants.THEATRE_ART_BG_ORIGIN)
+                .setOrigin(Origin.THEATRE_ART_BG.getOrigin())
                 .setDate(localDateTime)
                 .setLastUpdated(OffsetDateTime.now(ZoneOffset.UTC));
     }

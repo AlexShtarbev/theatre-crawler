@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.ays.theatre.crawler.core.dao.TheatrePlayDao;
 import com.ays.theatre.crawler.core.utils.Constants;
+import com.ays.theatre.crawler.core.utils.Origin;
 import com.ays.theatre.crawler.theatreartbg.job.TheatreArtBgRunner;
 
 import jakarta.ws.rs.GET;
@@ -26,7 +27,7 @@ public class TheatrePlayResource {
     @GET
     @Path("/all")
     public List<String> getTheatrePlays() {
-        return theatrePlayDao.getTheatrePlaysByOrigin(Constants.THEATRE_ART_BG_ORIGIN, OffsetDateTime.now());
+        return theatrePlayDao.getTheatrePlaysByOrigin(Origin.THEATRE_ART_BG, OffsetDateTime.now());
     }
 
     @POST

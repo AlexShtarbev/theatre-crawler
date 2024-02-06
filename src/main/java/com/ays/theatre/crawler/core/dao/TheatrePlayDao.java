@@ -13,6 +13,7 @@ import org.jooq.DSLContext;
 import com.ays.theatre.crawler.Tables;
 import com.ays.theatre.crawler.core.model.ChangeAction;
 import com.ays.theatre.crawler.core.model.ImmutableTheatrePlayObject;
+import com.ays.theatre.crawler.core.utils.Origin;
 import com.ays.theatre.crawler.tables.records.TheatrePlayDetailsRecord;
 import com.ays.theatre.crawler.tables.records.TheatrePlayRecord;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgTicketPayload;
@@ -102,29 +103,29 @@ public class TheatrePlayDao {
                 .fetchOneInto(TheatrePlayDetailsRecord.class));
     }
 
-    public List<String> getTheatrePlaysByOrigin(String origin, OffsetDateTime dateTime) {
+    public List<String> getTheatrePlaysByOrigin(Origin origin, OffsetDateTime dateTime) {
         return dslContext.selectDistinct(Tables.THEATRE_PLAY.URL)
                 .from(Tables.THEATRE_PLAY)
-                .where(Tables.THEATRE_PLAY.ORIGIN.eq(origin))
+                .where(Tables.THEATRE_PLAY.ORIGIN.eq(origin.getOrigin()))
                 .and(Tables.THEATRE_PLAY.DATE.greaterOrEqual(dateTime))
                 .orderBy(Tables.THEATRE_PLAY.URL.asc())
                 .fetchInto(String.class);
     }
 
-    public List<OffsetDateTime> getDatesOfPlaysByOriginAndUrl(String origin, String url) {
+    public List<OffsetDateTime> getDatesOfPlaysByOriginAndUrl(Origin origin, String url) {
         return dslContext.select(Tables.THEATRE_PLAY.DATE)
                 .from(Tables.THEATRE_PLAY)
-                .where(Tables.THEATRE_PLAY.ORIGIN.eq(origin))
+                .where(Tables.THEATRE_PLAY.ORIGIN.eq(origin.getOrigin()))
                 .and(Tables.THEATRE_PLAY.URL.eq(url))
                 .fetchInto(OffsetDateTime.class);
     }
 
-    public int updatePlayTicketLink(ImmutableTheatreArtBgTicketPayload payload, String origin) {
+    public int updatePlayTicketLink(ImmutableTheatreArtBgTicketPayload payload, Origin origin) {
         return dslContext.update(Tables.THEATRE_PLAY)
                 .set(Tables.THEATRE_PLAY.TICKETS_URL, payload.getTicketUrl())
                 .where(Tables.THEATRE_PLAY.URL.eq(payload.getUrl()))
                 .and(Tables.THEATRE_PLAY.DATE.eq(payload.getDate()))
-                .and(Tables.THEATRE_PLAY.ORIGIN.eq(origin))
+                .and(Tables.THEATRE_PLAY.ORIGIN.eq(origin.getOrigin()))
                 .execute();
     }
 

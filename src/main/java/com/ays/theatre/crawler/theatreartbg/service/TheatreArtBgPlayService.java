@@ -5,6 +5,7 @@ import static com.ays.theatre.crawler.core.utils.DateUtils.BULGARIAN_MONTH_TO_CA
 import com.ays.theatre.crawler.core.dao.TheatrePlayDao;
 import com.ays.theatre.crawler.core.service.LatchService;
 import com.ays.theatre.crawler.core.service.TheatreService;
+import com.ays.theatre.crawler.core.utils.Origin;
 import com.ays.theatre.crawler.tables.records.TheatrePlayDetailsRecord;
 import com.ays.theatre.crawler.core.utils.Constants;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgPlayObject;
@@ -56,7 +57,7 @@ public class TheatreArtBgPlayService implements TheatreService<ImmutableTheatreA
             // update the links to any offered tickets
             var ticketsLinks = getTicketsLinks(playInfo, url);
             ticketsLinks.forEach(
-                    payload -> theatrePlayDao.updatePlayTicketLink(payload, Constants.THEATRE_ART_BG_ORIGIN));
+                    payload -> theatrePlayDao.updatePlayTicketLink(payload, Origin.THEATRE_ART_BG));
         } catch (Exception ex) {
             LOG.error("An error occurred while trying to scrape " + url);
             throw new RuntimeException(ex);
@@ -133,7 +134,7 @@ public class TheatreArtBgPlayService implements TheatreService<ImmutableTheatreA
     }
 
     private List<ImmutableTheatreArtBgTicketPayload> getTicketsLinks(DomNode playInfo, String url) {
-        var dates = theatrePlayDao.getDatesOfPlaysByOriginAndUrl(Constants.THEATRE_ART_BG_ORIGIN, url);
+        var dates = theatrePlayDao.getDatesOfPlaysByOriginAndUrl(Origin.THEATRE_ART_BG, url);
         var dayAndMonthYToDateMap = dates.stream()
                 .collect(Collectors.toMap(
                         date -> String.format("%d-%d", date.getDayOfMonth(), date.getMonthValue()),
@@ -178,6 +179,6 @@ public class TheatreArtBgPlayService implements TheatreService<ImmutableTheatreA
                 .setRating(ratingAndVotes)
                 .setCrew(crewHtml)
                 .setDescription(descriptionHtml)
-                .setOrigin(Constants.THEATRE_ART_BG_ORIGIN);
+                .setOrigin(Origin.THEATRE_ART_BG.getOrigin());
     }
 }
