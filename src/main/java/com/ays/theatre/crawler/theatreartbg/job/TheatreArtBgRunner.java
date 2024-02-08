@@ -1,6 +1,9 @@
 
 package com.ays.theatre.crawler.theatreartbg.job;
 
+import static com.ays.theatre.crawler.Configuration.GOOGLE_CALENDAR_WORKER_QUEUE_SIZE;
+import static com.ays.theatre.crawler.Configuration.THEATRE_ART_BG_WORKER_POOL_SIZE;
+
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +27,7 @@ import com.ays.theatre.crawler.theatreartbg.service.TheatreArtBgDayService;
 import com.ays.theatre.crawler.theatreartbg.worker.TheatreArtBgScraperWorkerPool;
 
 import io.quarkus.logging.Log;
+import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 
 @Singleton
@@ -38,6 +42,8 @@ public class TheatreArtBgRunner implements Runnable {
     private final GoogleCalendarDao googleCalendarDao;
     private final TheatreArtBgScraperWorkerPool theatreArtBgScraperWorkerPool;
     private final GoogleCalendarEventSchedulerWorkerPool googleCalendarEventSchedulerWorkerPool;
+    private final int theatreArtBgWorkerPoolSize;
+    private final int googleCalendarWorkerPoolSize;
 
     public TheatreArtBgRunner(ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> scraperQueue,
                               ConcurrentLinkedQueue<ImmutableGoogleCalendarEventSchedulerPayload> calendarQueue,
@@ -46,7 +52,9 @@ public class TheatreArtBgRunner implements Runnable {
                               TheatrePlayDao theatrePlayDao,
                               GoogleCalendarDao googleCalendarDao,
                               TheatreArtBgScraperWorkerPool theatreArtBgScraperWorkerPool,
-                              GoogleCalendarEventSchedulerWorkerPool googleCalendarEventSchedulerWorkerPool) {
+                              GoogleCalendarEventSchedulerWorkerPool googleCalendarEventSchedulerWorkerPool,
+                              @Named(THEATRE_ART_BG_WORKER_POOL_SIZE) int theatreArtBgWorkerPoolSize,
+                              @Named(GOOGLE_CALENDAR_WORKER_QUEUE_SIZE) int googleCalendarWorkerPoolSize) {
         this.scraperQueue = scraperQueue;
         this.calendarQueue = calendarQueue;
         this.service = service;
@@ -55,17 +63,19 @@ public class TheatreArtBgRunner implements Runnable {
         this.googleCalendarDao = googleCalendarDao;
         this.theatreArtBgScraperWorkerPool = theatreArtBgScraperWorkerPool;
         this.googleCalendarEventSchedulerWorkerPool = googleCalendarEventSchedulerWorkerPool;
+        this.theatreArtBgWorkerPoolSize = theatreArtBgWorkerPoolSize;
+        this.googleCalendarWorkerPoolSize = googleCalendarWorkerPoolSize;
     }
 
     public void run() {
         LOG.info("Starting Theatre.art.bg job");
         LOG.info("Navigating to " + Constants.THEATRE_ART_BG_BASE_URL);
         var doc = PageUtils.navigateWithRetry(Constants.THEATRE_ART_BG_BASE_URL);
-        var today = OffsetDateTime.now();
+        var currentTime = OffsetDateTime.now();
         try {
-            runScraping(doc);
+            runScraping(currentTime, doc);
 
-            runCreatingGoogleCalendarEvents(today);
+            runCreatingGoogleCalendarEvents(currentTime);
         } catch (Exception ex) {
             LOG.error("Failed to get calendar", ex);
         } finally {
@@ -73,25 +83,28 @@ public class TheatreArtBgRunner implements Runnable {
         }
     }
 
-    private void runScraping(Document doc) {
-        theatreArtBgScraperWorkerPool.startWorkers();
-        handleScrapingPlays(doc);
+    private void runScraping(OffsetDateTime currentTime, Document doc) {
+        theatreArtBgScraperWorkerPool.startWorkers(theatreArtBgWorkerPoolSize);
+        handleScrapingPlays(currentTime, doc);
         Log.info("Done with scraping for day urls");
 
-        handleScrapingPlayDetails();
+        handleScrapingPlayDetails(currentTime);
         Log.info("Done scraping play urls");
         theatreArtBgScraperWorkerPool.stopWorkers();
     }
 
-    private void handleScrapingPlays(Document doc) {
+    private void handleScrapingPlays(OffsetDateTime currentTime, Document doc) {
         var calendar = service.getCalendar(doc);
-        var dayUrls = getDayUrls(calendar);
+        var dayUrls = getDayUrls(currentTime, calendar);
         latchService.init(Constants.THEATRE_ART_BG_DAY_LATCH, dayUrls.size());
         scraperQueue.addAll(dayUrls);
         latchService.await(Constants.THEATRE_ART_BG_DAY_LATCH);
     }
 
-    private List<ImmutableTheatreArtQueuePayload> getDayUrls(List<ImmutableTheatreArtBgCalendar> calendar) {
+    private List<ImmutableTheatreArtQueuePayload> getDayUrls(
+            OffsetDateTime currentTIme,
+            List<ImmutableTheatreArtBgCalendar> calendar) {
+
         return calendar.stream().flatMap(cal -> {
             LOG.info(String.format("---Loading all other days for %d %d: %s---",
                                    cal.getMonth(), cal.getYear(), cal.getUrl()));
@@ -101,17 +114,16 @@ public class TheatreArtBgRunner implements Runnable {
             var allDaysLinks = new ArrayList<>(nextDays);
             allDaysLinks.add(cal.getUrl());
 
-            return allDaysLinks.stream().map(url -> getPayload(cal, url));
+            return allDaysLinks.stream().map(url -> getPayload(currentTIme, cal, url));
         }).toList();
     }
 
-    private void handleScrapingPlayDetails() {
-        var allPlayRecords = theatrePlayDao.getTheatrePlaysByOrigin(Origin.THEATRE_ART_BG,
-                                                                    OffsetDateTime.now());
-
+    private void handleScrapingPlayDetails(OffsetDateTime currentTime) {
+        var allPlayRecords = theatrePlayDao.getTheatrePlaysByOrigin(Origin.THEATRE_ART_BG, currentTime);
         var playPayloads = allPlayRecords.stream().map(url ->
             ImmutableTheatreArtQueuePayload.builder().url(url)
                     .object(ImmutableTheatreArtBgPlayObject.builder().build())
+                    .scrapingStartTime(currentTime)
                     .build()
         ).toList();
         latchService.init(Constants.THEATRE_ART_BG_PLAY_LATCH, playPayloads.size());
@@ -120,15 +132,31 @@ public class TheatreArtBgRunner implements Runnable {
     }
 
     private void runCreatingGoogleCalendarEvents(OffsetDateTime today) {
-        googleCalendarEventSchedulerWorkerPool.startWorkers();
         var recordsFromTodayOnwards = googleCalendarDao.getRecords(Origin.THEATRE_ART_BG, today);
+        if (recordsFromTodayOnwards.isEmpty()) {
+            LOG.info("No new events to create. Won't start Google Calendar workers.");
+            return;
+        }
+        var poolSize = googleCalendarWorkerPoolSize;
+        if (recordsFromTodayOnwards.size() < poolSize) {
+            poolSize = recordsFromTodayOnwards.size();
+        }
+
         latchService.init(Constants.GOOGLE_CALENDAR_LATCH, recordsFromTodayOnwards.size());
+        googleCalendarEventSchedulerWorkerPool.startWorkers(poolSize);
         calendarQueue.addAll(recordsFromTodayOnwards);
         latchService.await(Constants.GOOGLE_CALENDAR_LATCH);
         googleCalendarEventSchedulerWorkerPool.stopWorkers();
     }
 
-    private ImmutableTheatreArtQueuePayload getPayload(ImmutableTheatreArtBgCalendar cal, String url) {
-        return ImmutableTheatreArtQueuePayload.builder().url(url).object(cal).build();
+    private ImmutableTheatreArtQueuePayload getPayload(
+            OffsetDateTime currentTime,
+            ImmutableTheatreArtBgCalendar cal,
+            String url) {
+        return ImmutableTheatreArtQueuePayload.builder()
+                .url(url)
+                .object(cal)
+                .scrapingStartTime(currentTime)
+                .build();
     }
 }
