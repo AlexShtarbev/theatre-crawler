@@ -75,6 +75,18 @@ public class TheatrePlayDao {
                 .set(record)
                 .execute();
     }
+
+    public int updateLastUpdated(
+            DSLContext dslContext, String url, OffsetDateTime playTime, Origin origin, OffsetDateTime lastUpdatedTime) {
+
+        return dslContext.update(Tables.THEATRE_PLAY)
+                .set(Tables.THEATRE_PLAY.LAST_UPDATED, lastUpdatedTime)
+                .where(Tables.THEATRE_PLAY.URL.eq(url))
+                .and(Tables.THEATRE_PLAY.DATE.eq(playTime))
+                .and(Tables.THEATRE_PLAY.ORIGIN.eq(origin.getOrigin()))
+                .execute();
+    }
+
     public int insertPlay(DSLContext dslContext, TheatrePlayRecord record) {
         return dslContext.insertInto(Tables.THEATRE_PLAY)
                 .set(record)
@@ -82,7 +94,7 @@ public class TheatrePlayDao {
                 .execute();
     }
 
-    public int upsertDetails(TheatrePlayDetailsRecord record) {
+    public int upsertDetails(DSLContext dslContext, TheatrePlayDetailsRecord record) {
         return dslContext.insertInto(Tables.THEATRE_PLAY_DETAILS)
                 .set(record)
                 .onDuplicateKeyUpdate()
@@ -108,6 +120,7 @@ public class TheatrePlayDao {
                 .from(Tables.THEATRE_PLAY)
                 .where(Tables.THEATRE_PLAY.ORIGIN.eq(origin.getOrigin()))
                 .and(Tables.THEATRE_PLAY.DATE.greaterOrEqual(dateTime))
+                .and(Tables.THEATRE_PLAY.DATE.greaterOrEqual(dateTime))
                 .orderBy(Tables.THEATRE_PLAY.URL.asc())
                 .fetchInto(String.class);
     }
@@ -120,7 +133,7 @@ public class TheatrePlayDao {
                 .fetchInto(OffsetDateTime.class);
     }
 
-    public int updatePlayTicketLink(ImmutableTheatreArtBgTicketPayload payload, Origin origin) {
+    public int updatePlayTicketLink(DSLContext dslContext, ImmutableTheatreArtBgTicketPayload payload, Origin origin) {
         return dslContext.update(Tables.THEATRE_PLAY)
                 .set(Tables.THEATRE_PLAY.TICKETS_URL, payload.getTicketUrl())
                 .where(Tables.THEATRE_PLAY.URL.eq(payload.getUrl()))

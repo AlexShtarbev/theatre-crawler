@@ -27,6 +27,7 @@ create table if not exists theatre.theatre_play_details (
      crew                         text NULL,
      rating                       text NULL,
      origin                       text NULL,
+     last_updated                 timestamptz DEFAULT (now()),
      PRIMARY KEY (url)
 );
 

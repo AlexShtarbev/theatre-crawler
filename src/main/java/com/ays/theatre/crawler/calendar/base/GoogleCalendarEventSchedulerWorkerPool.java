@@ -25,9 +25,7 @@ public class GoogleCalendarEventSchedulerWorkerPool extends WorkerPool<GoogleCal
             GoogleCalendarService googleCalendarService,
             GoogleCalendarDao dao,
             ConcurrentLinkedQueue<ImmutableGoogleCalendarEventSchedulerPayload> queue,
-            LatchService latchService,
-            @Named(GOOGLE_CALENDAR_WORKER_QUEUE_SIZE) int poolSize) {
-        super(poolSize);
+            LatchService latchService) {
         this.googleCalendarService = googleCalendarService;
         this.dao = dao;
         this.queue = queue;

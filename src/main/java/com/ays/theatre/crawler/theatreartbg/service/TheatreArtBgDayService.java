@@ -3,7 +3,7 @@ package com.ays.theatre.crawler.theatreartbg.service;
 import com.ays.theatre.crawler.core.dao.TheatrePlayDao;
 import com.ays.theatre.crawler.core.model.ImmutableTheatrePlayObject;
 import com.ays.theatre.crawler.core.service.LatchService;
-import com.ays.theatre.crawler.core.service.TheatreService;
+import com.ays.theatre.crawler.core.service.ScrapeService;
 import com.ays.theatre.crawler.core.utils.Origin;
 import com.ays.theatre.crawler.tables.records.TheatrePlayRecord;
 import com.ays.theatre.crawler.core.utils.Constants;
@@ -26,7 +26,7 @@ import java.util.*;
 import static com.ays.theatre.crawler.core.utils.Constants.THEATRE_ART_BG_BASE_URL;
 
 @Singleton
-public class TheatreArtBgDayService implements TheatreService<ImmutableTheatreArtBgCalendar> {
+public class TheatreArtBgDayService implements ScrapeService<ImmutableTheatreArtBgCalendar> {
     private static final Logger LOG = Logger.getLogger(TheatreArtBgDayService.class);
     public static final String HREF = "href";
 
@@ -96,7 +96,9 @@ public class TheatreArtBgDayService implements TheatreService<ImmutableTheatreAr
             var linkOfEachDay = daysOfTheMonth.get(index).select("a");
             var href = linkOfEachDay.attr(HREF);
             var dayNumber = linkOfEachDay.text();
-            nextLinks.add(Constants.THEATRE_ART_BG_BASE_URL + href);
+            var theatrePlayUrl = THEATRE_ART_BG_BASE_URL + href;
+
+            nextLinks.add(theatrePlayUrl);
             LOG.info(String.format("%s: %s", dayNumber, href));
         }
 
@@ -104,7 +106,7 @@ public class TheatreArtBgDayService implements TheatreService<ImmutableTheatreAr
     }
 
     @Override
-    public void scrape(ImmutableTheatreArtBgCalendar calendar, String url) {
+    public void scrape(ImmutableTheatreArtBgCalendar calendar, String url, OffsetDateTime scrapeStartTime) {
         var mergeResult = List.<ImmutableTheatrePlayObject>of();
         try {
             LOG.info("Will navigate to: " + url);
@@ -112,14 +114,12 @@ public class TheatreArtBgDayService implements TheatreService<ImmutableTheatreAr
             LOG.info("Started scarping: " + url);
             var maybeMetadata = extractPlayData(page, url);
             if (maybeMetadata.isEmpty()) {
-                LOG.info("count down");
                 latchService.countDown(Constants.THEATRE_ART_BG_DAY_LATCH);
                 return;
             }
 
-            var playMetadataRecords = getRecords(maybeMetadata.get(), calendar);
+            var playMetadataRecords = getNonScrapedRecords(scrapeStartTime, calendar, maybeMetadata);
             mergeResult = theatrePlayDao.merge(playMetadataRecords);
-            LOG.info("count down");
             latchService.countDown(Constants.THEATRE_ART_BG_DAY_LATCH);
         } catch (Exception ex) {
             LOG.error(ex);
@@ -129,14 +129,29 @@ public class TheatreArtBgDayService implements TheatreService<ImmutableTheatreAr
         }
     }
 
+    private List<TheatrePlayRecord> getNonScrapedRecords(
+            OffsetDateTime scrapeStartTime,
+            ImmutableTheatreArtBgCalendar calendar,
+            Optional<ImmutableTheatreArtBgExtractedDayMetadata> maybeMetadata) {
+
+        return getRecords(scrapeStartTime, maybeMetadata.get(), calendar)
+                .stream()
+                .filter(record -> {
+                    var maybePlay = theatrePlayDao.getPlayFromUrlAndDate(record.getUrl(), record.getDate());
+                    return maybePlay.isEmpty();
+                }).toList();
+    }
+
     private List<TheatrePlayRecord> getRecords(
-            ImmutableTheatreArtBgExtractedDayMetadata metadata, ImmutableTheatreArtBgCalendar calendar) {
+            OffsetDateTime scrapeStartTime,
+            ImmutableTheatreArtBgExtractedDayMetadata metadata,
+            ImmutableTheatreArtBgCalendar calendar) {
         return metadata.getPlaysMetadata()
                 .stream()
                 .map(play -> {
                     try {
                         var localDateTime = getOffsetDateTime(metadata, calendar, play);
-                        return getTheatrePlayRecord(play, localDateTime);
+                        return getTheatrePlayRecord(scrapeStartTime, play, localDateTime);
                     } catch (Exception ex) {
                         LOG.error(ex);
                         return null;
@@ -144,9 +159,10 @@ public class TheatreArtBgDayService implements TheatreService<ImmutableTheatreAr
                 }).filter(Objects::nonNull).toList();
     }
 
-    private static OffsetDateTime getOffsetDateTime(ImmutableTheatreArtBgExtractedDayMetadata metadata,
-                                                    ImmutableTheatreArtBgCalendar calendar,
-                                                    TheatreArtBgExtractedPlayMetadata play) {
+    private static OffsetDateTime getOffsetDateTime(
+            ImmutableTheatreArtBgExtractedDayMetadata metadata,
+            ImmutableTheatreArtBgCalendar calendar,
+            TheatreArtBgExtractedPlayMetadata play) {
         return DateUtils.toOffsetDateTime(calendar.getYear(),
                 calendar.getMonth(),
                 metadata.getDay(),
@@ -154,14 +170,16 @@ public class TheatreArtBgDayService implements TheatreService<ImmutableTheatreAr
                 play.getMinute());
     }
 
-    private TheatrePlayRecord getTheatrePlayRecord(TheatreArtBgExtractedPlayMetadata play, OffsetDateTime localDateTime) {
+    private TheatrePlayRecord getTheatrePlayRecord(
+            OffsetDateTime scrapeStartTime,
+            TheatreArtBgExtractedPlayMetadata play, OffsetDateTime localDateTime) {
         return new TheatrePlayRecord()
                 .setTitle(play.getTitle())
                 .setUrl(play.getUrl())
                 .setTheatre(play.getTheatre())
                 .setOrigin(Origin.THEATRE_ART_BG.getOrigin())
                 .setDate(localDateTime)
-                .setLastUpdated(OffsetDateTime.now(ZoneOffset.UTC));
+                .setLastUpdated(scrapeStartTime);
     }
 
     private void runPostMergePlayScraping(List<ImmutableTheatrePlayObject> mergeResult) {

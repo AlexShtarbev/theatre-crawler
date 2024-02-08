@@ -1,8 +1,8 @@
 package com.ays.theatre.crawler.theatreartbg.model;
 
-import org.immutables.value.Value;
+import java.time.OffsetDateTime;
 
-import com.ays.theatre.crawler.core.service.TheatreService;
+import org.immutables.value.Value;
 
 @Value.Immutable
 public interface TheatreArtQueuePayload {
@@ -10,4 +10,6 @@ public interface TheatreArtQueuePayload {
     Object getObject();
 
     String getUrl();
+
+    OffsetDateTime getScrapingStartTime();
 }

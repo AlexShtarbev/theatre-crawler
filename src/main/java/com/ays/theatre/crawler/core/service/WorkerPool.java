@@ -5,17 +5,15 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class WorkerPool<W extends WorkerI> {
-    private final int poolSize;
     private final List<W> workers;
     private final AtomicBoolean started;
 
-    public WorkerPool(int poolSize) {
-        this.poolSize = poolSize;
+    public WorkerPool() {
         this.workers = new ArrayList<>();
         this.started = new AtomicBoolean(false);
     }
 
-    public void startWorkers() {
+    public void startWorkers(int poolSize) {
         if (started.get()) {
             throw new IllegalCallerException("Workers already started");
         }

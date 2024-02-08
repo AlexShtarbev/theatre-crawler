@@ -1,13 +1,14 @@
 
 package com.ays.theatre.crawler.theatreartbg.worker;
 
+import java.time.OffsetDateTime;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.time.StopWatch;
 import org.jboss.logging.Logger;
 
-import com.ays.theatre.crawler.core.service.TheatreService;
+import com.ays.theatre.crawler.core.service.ScrapeService;
 import com.ays.theatre.crawler.core.service.Worker;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgCalendar;
 import com.ays.theatre.crawler.theatreartbg.model.ImmutableTheatreArtBgPlayObject;
@@ -37,11 +38,11 @@ public class TheatreArtBgScraperWorker extends Worker<ImmutableTheatreArtQueuePa
             if (payload.getObject() instanceof ImmutableTheatreArtBgCalendar) { // FIXME - custom object
                 LOG.info(String.format("[%d] ==> Visiting Day URL: %s", getId(), payload.getUrl()));
                 scrapeAndTime(theatreArtBgDayService, (ImmutableTheatreArtBgCalendar) payload.getObject(),
-                        payload.getUrl());
+                        payload.getUrl(), payload.getScrapingStartTime());
             } else if (payload.getObject() instanceof ImmutableTheatreArtBgPlayObject) {
                 LOG.info(String.format("[%d] ==> Visiting PLAY URL: %s", getId(), payload.getUrl()));
                 scrapeAndTime(theatreArtBgPlayService, (ImmutableTheatreArtBgPlayObject) payload.getObject(),
-                        payload.getUrl());
+                        payload.getUrl(), payload.getScrapingStartTime());
             } else {
                 LOG.error("No matching service for " + payload.getUrl());
             }
@@ -51,11 +52,11 @@ public class TheatreArtBgScraperWorker extends Worker<ImmutableTheatreArtQueuePa
         }
     }
 
-    private <T> void scrapeAndTime(TheatreService<T> service, T obj, String url) {
+    private <T> void scrapeAndTime(ScrapeService<T> service, T obj, String url, OffsetDateTime scrapeStartTime) {
         var stopWatch = new StopWatch();
         stopWatch.start();
         try {
-            service.scrape(obj, url);
+            service.scrape(obj, url, scrapeStartTime);
         } catch (Exception ex) {
             LOG.error(ex);
         } finally {

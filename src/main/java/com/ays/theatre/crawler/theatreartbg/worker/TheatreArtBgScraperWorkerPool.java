@@ -26,9 +26,7 @@ public class TheatreArtBgScraperWorkerPool extends WorkerPool<TheatreArtBgScrape
 
     public TheatreArtBgScraperWorkerPool(TheatreArtBgDayService theatreArtBgDayService,
                                          TheatreArtBgPlayService theatreArtBgPlayService,
-                                         ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> queue,
-                                         @Named(THEATRE_ART_BG_WORKER_POOL_SIZE) int poolSize) {
-        super(poolSize);
+                                         ConcurrentLinkedQueue<ImmutableTheatreArtQueuePayload> queue) {
         this.theatreArtBgDayService = theatreArtBgDayService;
         this.theatreArtBgPlayService = theatreArtBgPlayService;
         this.queue = queue;
