@@ -18,7 +18,7 @@ public class PeriodicRunner {
         this.googleCalendarReSyncService = googleCalendarReSyncService;
     }
 
-//    @Scheduled(cron="0 */5 * * * ?")
+    @Scheduled(cron="0 */5 * * * ?")
     void runTheaterArtBgJob() {
         // Resync in case the DB data was lost or the process is running on a new machine.
         googleCalendarReSyncService.reSync();
