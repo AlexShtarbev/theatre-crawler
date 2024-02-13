@@ -1,7 +1,5 @@
 package com.ays.theatre.crawler.calendar.base;
 
-import static com.ays.theatre.crawler.Configuration.GOOGLE_CALENDAR_WORKER_QUEUE_SIZE;
-
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -10,7 +8,6 @@ import com.ays.theatre.crawler.calendar.model.ImmutableGoogleCalendarEventSchedu
 import com.ays.theatre.crawler.core.service.LatchService;
 import com.ays.theatre.crawler.core.service.WorkerPool;
 
-import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 
 @Singleton

@@ -29,8 +29,11 @@ public abstract class Worker<T> implements WorkerI {
             T payload;
             do {
                 payload = queue.poll();
-            } while (payload == null);
-            handlePayload(payload);
+            } while (running.get() && payload == null);
+
+            if (payload != null) {
+                handlePayload(payload);
+            }
         }
         log.info(String.format("Shutting down %d", id));
     }
@@ -41,7 +44,7 @@ public abstract class Worker<T> implements WorkerI {
 
     public void interrupt() {
         log.info(String.format("Interrupting %d", id));
-        running.set(false);
+        running.getAndSet(false);
     }
 
     public abstract void handlePayload(T payload);
